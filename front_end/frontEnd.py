@@ -1,3 +1,5 @@
+project_dir = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
+sys.path.append(project_dir)
 #----- import python modules -----+
 import os
 import numpy as np
@@ -6,13 +8,15 @@ from tkinter import filedialog, colorchooser
 import customtkinter
 import matplotlib.pyplot as plt
 import matplotlib.colors as mcolors
-
+import sys
+import os
 #----- import custom modules -----+
-import functions.plotting as plotting, ui.ui as ui
-import analysis.Analysis as Analysis
+from functions import plotting
+from ui import ui
+from analysis import Analysis
 from classes.classes import Colors
 from functions.optionsDictionary import options
-plt.style.use('custom_style.mplstyle')
+plt.style.use('styles/custom_style.mplstyle')
 
 class App(customtkinter.CTk):
     def __init__(self):

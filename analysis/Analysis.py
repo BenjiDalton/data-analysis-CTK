@@ -9,8 +9,7 @@ import matplotlib.pyplot as plt
 import functions.plotting as plotting
 from classes.classes import FileInfo
 from functions.optionsDictionary import options
-
-plt.style.use('custom_style.mplstyle')
+plt.style.use('styles/custom_style.mplstyle')
 
 def Run(fileDirectory=None, model: str=None, test: str=None, graphBool: bool=False) -> pd.DataFrame:
 

@@ -16,7 +16,7 @@ import matplotlib.pyplot as plt
 #                 'figure.figsize': [9, 6],
 #                 'figure.autolayout': True})
 
-plt.style.use('custom_style.mplstyle')
+plt.style.use('styles/custom_style.mplstyle')
 
 #----- useful strings for defining x/y labels -----+
 torqueLabel = fr'Torque (mN$\cdot$m)'
