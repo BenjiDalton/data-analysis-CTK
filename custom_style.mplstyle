@@ -1,0 +1,16 @@
+figure.figsize: 9,6
+figure.edgecolor: white
+axes.spines.right: False
+axes.spines.top: False
+figure.dpi: 100
+legend.edgecolor: white
+font.family: times new roman
+font.size: 20
+axes.linewidth: 2
+axes.labelsize: 20
+xtick.labelsize: 14
+ytick.labelsize: 14
+errorbar.capsize: 4
+lines.markersize: 16
+lines.markeredgewidth: 0
+lines.linewidth: 2
