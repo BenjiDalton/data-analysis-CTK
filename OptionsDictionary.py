@@ -1,15 +1,15 @@
-import singlefibre_functions as singlefibre
-import invivo_functions as invivo
+import singlefibreFunctions as singlefibre
+import invivoFunctions as invivo
 import pandas as pd
 from classes import FileInfo
 # define lists used to generate dictionary that is used to assist with specific functions based on model and test the user is analzying
 # create dicts with key (used to define 'col basenames') and value (used to define 'graph y label')
 
-pCa_basenames = {
+pcaBasenames = {
     'Active Force': 'Force (mN)',
     'Specific Force': 'Specific Force (mN / CSA)'}
     
-ktr_basenames = {
+ktrBasenames = {
     'ktr Force': 'Force (uN)', 
     'ktr Specific Force': 'Specific Force (mN / CSA)',
     'ktr': 'ktr (s-1)', 
@@ -17,7 +17,7 @@ ktr_basenames = {
     'Active Stiffness': [], 
     'Specific Stiffness': []}
 
-power_basenames = {
+powerBasenames = {
     'Fmax': 'Force (mN)',
     'Active Force': 'Force (mN)',
     'Specific Force': 'Specific Force (mN / CSA)',
@@ -25,77 +25,77 @@ power_basenames = {
     'Normalized Velocity': 'Normalized Velocity (s-1)'}
 
 
-filename_info=None
+filenameInfo=None
 characteristics=None
 columns=None
-File=None
-AnalyzedFiles: list[FileInfo]=[]
+file=None
+analyzedFiles: list[FileInfo]=[]
 
 
-def fill_results(model: str = None, analysis_results = None, meta_data: dict = None, cols: list = None, substring: list = None) -> pd.DataFrame:
-    OrganizedData={}
+def fillResults(model: str = None, analysisResults = None, metaData: dict = None, cols: list = None, substring: list = None) -> pd.DataFrame:
+    organizedData={}
     columns=[]
-    def fill_organized_data():
+    def fillOrganizedData():
         for idx, var in enumerate(cols):
 
             if len(substring)>1:
-                col=cols[idx].format('-'.join(meta_data['filename info'][string]for string in substring))
+                col=cols[idx].format('-'.join(metaData['filename info'][string]for string in substring))
 
             else:
-                col=cols[idx].format(meta_data['filename info'][substring[0]])
-            if isinstance(analysis_results, dict):
-                OrganizedData[col]=analysis_results[col]
-            if isinstance(analysis_results, list):
-                OrganizedData[col]=analysis_results[idx]
+                col=cols[idx].format(metaData['filename info'][substring[0]])
+            if isinstance(analysisResults, dict):
+                organizedData[col]=analysisResults[col]
+            if isinstance(analysisResults, list):
+                organizedData[col]=analysisResults[idx]
 
-    def grab_filename_and_characteristic_info():
+    def grabFilename_Characteristcs():
         if model == 'Single Fibre':
-            OrganizedData['Animal']=meta_data['filename info']['animal'] 
-            OrganizedData['Fibre']=meta_data['filename info']['fibre']
-            for key, value in meta_data['characteristics'].items():
-                OrganizedData[key]=value
+            organizedData['Animal']=metaData['filename info']['animal'] 
+            organizedData['Fibre']=metaData['filename info']['fibre']
+            for key, value in metaData['characteristics'].items():
+                organizedData[key]=value
         if model == 'In Vivo':
-            OrganizedData['Condition']=meta_data['filename info']['condition']
-            if 'CON' in meta_data['filename info']['animal']:
-                OrganizedData['Condition int']=0
-            elif filename_info['animal'] in ['VCD_02', 'VCD_03', 'VCD_04', 'VCD_05', 'VCD_09', 'VCD_10', 'VCD_15', 'VCD_16', 'VCD_19', 'VCD_20']:
-                OrganizedData['Condition int']=1
+            organizedData['Condition']=metaData['filename info']['condition']
+            if 'CON' in metaData['filename info']['animal']:
+                organizedData['Condition int']=0
+            elif filenameInfo['animal'] in ['VCD_02', 'VCD_03', 'VCD_04', 'VCD_05', 'VCD_09', 'VCD_10', 'VCD_15', 'VCD_16', 'VCD_19', 'VCD_20']:
+                organizedData['Condition int']=1
             else:
-                OrganizedData['Condition int']=2
-            OrganizedData['Animal']=meta_data['filename info']['animal'] 
-            OrganizedData['Timepoint']=meta_data['filename info']['timepoint']
+                organizedData['Condition int']=2
+            organizedData['Animal']=metaData['filename info']['animal'] 
+            organizedData['Timepoint']=metaData['filename info']['timepoint']
 
-    def generate_FileInfo_object():
-        for key in OrganizedData.keys():
+    def generateFileInfo():
+        for key in organizedData.keys():
             if key in columns:
                 continue
             columns.append(key)
         if model=='Single Fibre':
-            EachFileInfo=FileInfo(
-                Animal=meta_data['filename info']['animal'],
-                Fibre=meta_data['filename info']['fibre'],
-                OrganizedData=OrganizedData)
+            fileInfo=FileInfo(
+                Animal=metaData['filename info']['animal'],
+                Fibre=metaData['filename info']['fibre'],
+                organizedData=organizedData)
         if model=='In Vivo':
-            EachFileInfo=FileInfo(
-                Animal=meta_data['filename info']['animal'],
-                Timepoint=meta_data['filename info']['timepoint'],
-                OrganizedData=OrganizedData)
-        AnalyzedFiles.append(EachFileInfo)
+            fileInfo=FileInfo(
+                Animal=metaData['filename info']['animal'],
+                Timepoint=metaData['filename info']['timepoint'],
+                organizedData=organizedData)
+        analyzedFiles.append(fileInfo)
 
-    grab_filename_and_characteristic_info()
-    fill_organized_data()
-    generate_FileInfo_object()
+    grabFilename_Characteristcs()
+    fillOrganizedData()
+    generateFileInfo()
 
-    results=pd.DataFrame(columns=OrganizedData.keys())
-    for File in AnalyzedFiles:
-        for column in File.OrganizedData.keys():
-            results.loc[File.Animal+File.Fibre, column]=File.OrganizedData[column]
+    results=pd.DataFrame(columns=organizedData.keys())
+    for file in analyzedFiles:
+        for column in file.organizedData.keys():
+            results.loc[file.Animal+file.Fibre, column]=file.organizedData[column]
     return results
 
 options = {
     'Single Fibre': {
-        'read file': singlefibre.ReadFile,
-        'fill results': fill_results,
+        'read file': singlefibre.readFile,
+        'fill results': fillResults,
         'pCa': {
             'analyze': singlefibre.pCaAnalysis
         },
@@ -192,7 +192,7 @@ options = {
     },
     'In Vivo': {
         'read file': invivo.ReadFile,
-        'fill results': fill_results,
+        'fill results': fillResults,
         'Torque-Frequency':{
             'analyze': invivo.Torque_Frequency
         },
@@ -208,7 +208,7 @@ options = {
     }
 }
 
-for protocol, basename in zip(['pCa', 'ktr'], [pCa_basenames, ktr_basenames]):
+for protocol, basename in zip(['pCa', 'ktr'], [pcaBasenames, ktrBasenames]):
     options['Single Fibre'][protocol].update({
         'col basenames': [*[key+' (pCa {})' for key in basename.keys()]],
         'graphing': {

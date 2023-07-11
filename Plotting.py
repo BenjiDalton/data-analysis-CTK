@@ -19,13 +19,13 @@ import matplotlib.pyplot as plt
 plt.style.use('custom_style.mplstyle')
 
 #----- useful strings for defining x/y labels -----+
-Torque = fr'Torque (mN$\cdot$m)'
-TorqueUnits = fr'mN$\cdot$m'
-RTD_title = fr'RTD (mN$\cdot$m$\cdot$s$^\minus$$^1$)'
-RTD_Units = fr'(mN$\cdot$m$\cdot$s$^\minus$$^1$)'
-JointAngle = fr'Joint Angle (deg$\cdot$s$^\minus$$^1$)'
+torqueLabel = fr'Torque (mN$\cdot$m)'
+torqueUnits = fr'mN$\cdot$m'
+rtdTitle = fr'RTD (mN$\cdot$m$\cdot$s$^\minus$$^1$)'
+rtdUnits = fr'(mN$\cdot$m$\cdot$s$^\minus$$^1$)'
+jointAngle = fr'Joint Angle (deg$\cdot$s$^\minus$$^1$)'
 
-edge_rgb=mcolors.hex2color(Colors.Black) + (1.0,)
+edgeRGB=mcolors.hex2color(Colors.Black) + (1.0,)
 
 def hex_to_rgb(hex: Colors = None, alpha: int | float = 1):
     """
@@ -36,7 +36,7 @@ def hex_to_rgb(hex: Colors = None, alpha: int | float = 1):
     """
     return mcolors.hex2color(hex) + (alpha,)
 
-def key_press(Event):
+def keyPress(Event):
     """
     press "enter" to close any open figures
     """
@@ -49,7 +49,7 @@ def initialize_fig():
     inititalize a matplotlib figure and subplot to be drawn on
     """
     fig, graph = plt.subplots()
-    fig.canvas.mpl_connect('key_press_event', key_press)
+    fig.canvas.mpl_connect('key_press_event', keyPress)
     return fig, graph
 
 def show(xlabel: str = None, ylabel: str = None, legend: bool = False):

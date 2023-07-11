@@ -5,7 +5,7 @@ import pandas as pd
 import matplotlib.colors as mcolors
 
 #----- import custom modules -----+
-import front_end
+import frontEnd
 from classes import Colors
 
 app_width = 1400
@@ -150,28 +150,28 @@ class Table(customtkinter.CTkScrollableFrame):
         self.table.pack()
 
 class ToplevelWindow(customtkinter.CTkToplevel):
-    def __init__(self, app: front_end.App, *args, **kwargs):
+    def __init__(self, app: frontEnd.App, *args, **kwargs):
         super().__init__(*args, **kwargs)
         self.geometry("200x180")
         self.title('Settings Menu')
         self.grid_columnconfigure(0, weight=1)
 
-        self.colorchooser = Button(
+        self.colorChooser = Button(
             master=self,
             text="Change Button Color",
-            command=app.change_ui_elements_color)
+            command=app.changeUIColor)
 
-        self.colorchooser.grid(row=0, column=0, pady=20)
+        self.colorChooser.grid(row=0, column=0, pady=20)
 
-        self.text_color_label = customtkinter.CTkLabel(
+        self.textColorLabel = customtkinter.CTkLabel(
             master=self,
             text = 'Text Color')
 
-        self.text_color = customtkinter.CTkSegmentedButton(
+        self.textColorChooser = customtkinter.CTkSegmentedButton(
             master=self,
             values=['White', 'Black'],
             fg_color=Colors.AuroraColor,
             command=app.change_text_color)
-        self.text_color.set('White')
-        self.text_color_label.grid(row=1, column=0)
-        self.text_color.grid(row=2, column = 0, pady=0)
+        self.textColorChooser.set('White')
+        self.textColorLabel.grid(row=1, column=0)
+        self.textColorChooser.grid(row=2, column = 0, pady=0)

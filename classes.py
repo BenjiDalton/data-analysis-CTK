@@ -14,7 +14,7 @@ class FileInfo:
     Fibre: dict=None
     pCa: dict=None
     Test: str=None
-    OrganizedData: dict=None
+    organizedData: dict=None
 
 @dataclass
 class TwitchResults:
@@ -60,7 +60,7 @@ class Colors:
     LemonLime='#A9EB66'
 
     #----- list of colors to use when creating bar graphs in app -----+
-    bar_graph_colors=[
+    barColors=[
         SteelBlue, 
         Perrywinkle, 
         AuroraColor, 

@@ -8,7 +8,7 @@ from matplotlib.gridspec import GridSpec
 from scipy.signal import butter, filtfilt
 
 #----- import custom modules -----+
-import Plotting
+import plotting
 from classes import Colors, TwitchResults
 
 
@@ -137,7 +137,7 @@ def Find_PeakForce(data: pd.DataFrame, WindowLength: int) -> tuple[float, int]:
     return PeakForce, PeakIndex
 
 def Torque_Frequency(data: pd.DataFrame=None, filename_info: dict=None, Graph: bool=False) -> float:
-    fig, graph=Plotting.initialize_fig()
+    fig, graph=plotting.initialize_fig()
     # Find index of first stimulation (i.e., contraction start)
     StimIndex=data.index[data['Stim'] == 1][0]
     
@@ -191,7 +191,7 @@ def Isotonic_contractions(data: pd.DataFrame=None, filename_info: dict=None, Use
     return data
 
 def Torque_Velocity(data: pd.DataFrame=None, meta_data: dict=None) -> tuple[float, float, float]:
-    fig, graph=Plotting.initialize_fig()
+    fig, graph=plotting.initialize_fig()
     contractionData=data[20000:26000].reset_index(drop=True)
 
     # Isolate data relevant to isotonic contractions 
@@ -230,7 +230,7 @@ def Torque_Velocity(data: pd.DataFrame=None, meta_data: dict=None) -> tuple[floa
             transform=plt.gca().transAxes,
             horizontalalignment='center',
             verticalalignment='center')
-        graph.ylabel(Plotting.JointAngle)
+        graph.ylabel(plotting.JointAngle)
         graph.xlabel('Time (s)')
     
     IsotonicGraphing()
@@ -285,7 +285,7 @@ def Fatigue(data: pd.DataFrame=None, meta_data: dict=None) -> int:
     Returns:
     - Number of contractions performed during fatigue protocol
     """
-    fig, graph=Plotting.initialize_fig()
+    fig, graph=plotting.initialize_fig()
     IndFatiguecontractions=[]
     # The end of the actual data must be found for fatigue tests
     # The same protocol is used for each subject so there may be several/many extra contractions written into Aurora Scientific protocol
@@ -323,7 +323,7 @@ def RTD_Analysis(data: pd.DataFrame=None, data_start: int=None, PeakTorque: floa
     Returns:
     - RTD (i.e., \u0394 force / \u0394 time)
     """
-    fig, graph=Plotting.initialize_fig()
+    fig, graph=plotting.initialize_fig()
     # contraction onset defined as the point torque exceeds 3 standard deviations of baseline
     data=data[data_start:].reset_index(drop=True)
     
@@ -352,9 +352,9 @@ def RTD_Analysis(data: pd.DataFrame=None, data_start: int=None, PeakTorque: floa
     
     graph.text(
         x=0.60, y=0.85,
-        s=f'RTD={RTD:.2f} {Plotting.RTD_Units}\n'
-            f'0-10 ms RTD={RTD_0_10:.2f} {Plotting.RTD_Units}\n'
-            f'0-25 ms RTD={RTD_0_25:.2f} {Plotting.RTD_Units}',
+        s=f'RTD={RTD:.2f} {plotting.RTD_Units}\n'
+            f'0-10 ms RTD={RTD_0_10:.2f} {plotting.RTD_Units}\n'
+            f'0-25 ms RTD={RTD_0_25:.2f} {plotting.RTD_Units}',
         transform=plt.gca().transAxes,
         fontsize=6,
         bbox=dict(boxstyle='round', facecolor='white'))
@@ -477,8 +477,8 @@ def PLFFD(data: pd.DataFrame=None, filename_info: dict=None, Graph: bool=False) 
             
             Graph.text(
                 x=0.5, y=0.95,
-                s=f'RTD={Twitch.RTD:.2f} {Plotting.RTD_Units} \n'
-                    f'Peak Torque={Twitch.PeakTorque:.2f} {Plotting.TorqueUnits}',
+                s=f'RTD={Twitch.RTD:.2f} {plotting.RTD_Units} \n'
+                    f'Peak Torque={Twitch.PeakTorque:.2f} {plotting.TorqueUnits}',
                 transform=Graph.transAxes,
                 horizontalalignment='center',
                 verticalalignment='center',
@@ -486,7 +486,7 @@ def PLFFD(data: pd.DataFrame=None, filename_info: dict=None, Graph: bool=False) 
                 bbox=dict(boxstyle='round', facecolor='white'))
 
         fig=plt.figure()
-        fig.canvas.mpl_connect('key_press_event', Plotting.KeyPress)
+        fig.canvas.mpl_connect('key_press_event', plotting.KeyPress)
         Subplot_Ymax=max([ControlTwitch.PeakTorque, LowHzTwitch.PeakTorque, PotentiatedTwitch.PeakTorque]) * 1.5
         Subplot_Ymin=data['Filtered Torque'].iloc[29000] - (data['Filtered Torque'].iloc[29000] - data['Filtered Torque'].min()) / 2
 
@@ -507,24 +507,24 @@ def PLFFD(data: pd.DataFrame=None, filename_info: dict=None, Graph: bool=False) 
             color=Colors.SeaGreen)
         
         Fulltest.set_xlabel('Time (s)')
-        Fulltest.set_ylabel(Plotting.Torque)
+        Fulltest.set_ylabel(plotting.Torque)
         Fulltest.set_ylim(-0.5, data['Filtered Torque'].max() * 1.5)
         Fulltest.text(
                 x=0.60, y=0.85,
-                s=f'RTD={Tetanus.RTD:.2f} {Plotting.RTD_Units} \n'
-                    f'Peak Torque={Tetanus.PeakTorque:.2f} {Plotting.TorqueUnits}',
+                s=f'RTD={Tetanus.RTD:.2f} {plotting.RTD_Units} \n'
+                    f'Peak Torque={Tetanus.PeakTorque:.2f} {plotting.TorqueUnits}',
                 transform=Fulltest.transAxes,
                 fontsize=annotate_fontsize,
                 bbox=dict(boxstyle='round', facecolor='white'))
         Fulltest.text(
                 x=0.33, y=0.5,
-                s=f'Peak Torque={LowHzTwitch.PeakTorque:.2f} {Plotting.TorqueUnits}',
+                s=f'Peak Torque={LowHzTwitch.PeakTorque:.2f} {plotting.TorqueUnits}',
                 transform=Fulltest.transAxes,
                 fontsize=annotate_fontsize,
                 bbox=dict(boxstyle='round', facecolor='white'))
         
         ControlTwitchGraph=fig.add_subplot(GridSpecs[1, 0])
-        ControlTwitchGraph.set_ylabel(Plotting.Torque)
+        ControlTwitchGraph.set_ylabel(plotting.Torque)
 
         PotentiatedTwitchGraph=fig.add_subplot(GridSpecs[1, 1])
         PotentiatedTwitchGraph.tick_params
