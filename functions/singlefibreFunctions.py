@@ -516,23 +516,24 @@ def getContractionData(data: pd.DataFrame=None, idx: int=None, protocolInfo: dic
 		'Force in (mN)']
 		]
 
-def workCalculation(data: pd.DataFrame, sampleRate: int=10000, graph: plt.Axes=None, graphLinecolor: Colors=None, graphLabel: str=None, annotationOffset: int=20) -> float:
+def workCalculation(data: pd.DataFrame, sampleRate: int=10000, forceGraph: plt.Axes=None, lengthGraph: plt.Axes=None,  graphLinecolor: Colors=None, graphLabel: str=None, annotationOffset: int=20) -> float:
 	ms_to_second=1000
 	lengthChange=(data['Length in (mm)'].iloc[-1] - data['Length in (mm)'].iloc[0]) * -1
 	cumForce=np.max(data['Force in (mN)'].cumsum())
 	contractionDuration=(data['Time (ms)'].iloc[-1] - data['Time (ms)'].iloc[-0]) / ms_to_second
 	work=((cumForce * lengthChange)/(contractionDuration)) / sampleRate
 
-	graph.plot(data['Time (ms)'].div(1000), data['Force in (mN)'], color=graphLinecolor, linewidth=0.8, label=graphLabel)
-	graph.fill_between(data['Time (ms)'].div(1000), y1=data['Force in (mN)'], color=graphLinecolor,  alpha=0.4)
-	graph.annotate(
-		text=f'Work={work:.4f}',
-		xy=(np.mean(data['Time (ms)'].div(1000)), np.mean(data['Force in (mN)'])),
-		xycoords='data',
-		xytext=(annotationOffset, 20),
-		textcoords='offset points',
-		arrowprops=dict(facecolor=Colors.Black, headlength=5, width=1, headwidth=5)
-	)
+	forceGraph.plot(data['Time (ms)'].div(1000), data['Force in (mN)'], color=graphLinecolor, linewidth=1.5, label=graphLabel)
+	lengthGraph.plot(data['Time (ms)'].div(1000), data['Length in (mm)'], color=graphLinecolor, linewidth=1.5, label=graphLabel)
+	forceGraph.fill_between(data['Time (ms)'].div(1000), y1=data['Force in (mN)'], color=graphLinecolor,  alpha=0.4)
+	# graph.annotate(
+	# 	text=f'Work={work:.4f}',
+	# 	xy=(np.mean(data['Time (ms)'].div(1000)), np.mean(data['Force in (mN)'])),
+	# 	xycoords='data',
+	# 	xytext=(annotationOffset, 20),
+	# 	textcoords='offset points',
+	# 	arrowprops=dict(facecolor=Colors.Black, headlength=5, width=1, headwidth=5)
+	# )
 	
 	return work
 
@@ -582,17 +583,25 @@ def Binta_Analysis(data: pd.DataFrame=None, metaData: dict=None, graph: plt.Axes
 def Makenna_Analysis(data: pd.DataFrame=None, metaData: dict=None, graph: plt.Axes=None) -> dict:
 	protocolInfo=metaData['protocol info']
 	activationStart=protocolInfo['Bath']['time'][protocolInfo['Bath']['info']['bath'].index('4')]
-	graphLinewidth=0.8
+	graphLinewidth=1.5
+	stretchColor='#f67e2a'
+	shortenColor='#31d3db'
+	stiffness=0
 
 	baseline_window=range(int(100000), int(105000))
 	data['Force in (mN)']=data['Force in (mN)'] - np.mean(data['Force in (mN)'][baseline_window])
 
 	stiffnessTime=data.index[data['Time (ms)']==activationStart + 40000][0]
-
-	data=data[100000:600000]    
-	graph.plot(data['Time (ms)'].div(1000), data['Force in (mN)'], color=Colors.Black, linewidth=graphLinewidth, label='Full test')
-	graph.set_title(metaData['filename info']['full filename'])
-	stiffness=stiffnessAnalysis(data=data, stiffness_time_seconds=stiffnessTime, graph=graph)
+	fig, (forceGraph, lengthGraph) = plt.subplots(nrows=2, ncols=1, sharex=True)
+	graphData=data[340000:380000]
+	forceGraph.plot(graphData['Time (ms)'].div(1000), graphData['Force in (mN)'], color=Colors.Black, linewidth=graphLinewidth, label='Force')
+	forceGraph.set_ylabel('Force (mN)')
+	# twinX=graph.twinx()
+	lengthGraph.plot(graphData['Time (ms)'].div(1000), graphData['Length in (mm)'], color=Colors.Black, linewidth=graphLinewidth, label='Length')
+	lengthGraph.set_ylabel('Length (mm)')
+	plt.xlabel('Time (s)')
+	# plt.title(metaData['filename info']['full filename'])
+	# stiffness=stiffnessAnalysis(data=data, stiffness_time_seconds=stiffnessTime, graph=forceGraph)
 
 	if metaData['filename info']['protocol'].upper() == 'SSC':
 		stretchData, shortenData=map(lambda number: getContractionData(
@@ -605,12 +614,13 @@ def Makenna_Analysis(data: pd.DataFrame=None, metaData: dict=None, graph: plt.Ax
 		stretchWork, shortenWork=map(
 			lambda data, lineColor, label, annotationOffset: workCalculation(
 				data, 
-				graph=graph, 
+				forceGraph=forceGraph,
+				lengthGraph=lengthGraph, 
 				graphLinecolor=lineColor, 
 				graphLabel=label, 
 				annotationOffset=annotationOffset), 
 					[stretchData, shortenData], 
-					[Colors.Firebrick, Colors.DeepBlue], 
+					[stretchColor, shortenColor], 
 					['Stretch', 'Shorten'], 
 					[-100, 20]
 		)
@@ -623,6 +633,7 @@ def Makenna_Analysis(data: pd.DataFrame=None, metaData: dict=None, graph: plt.Ax
 			stiffness
 		]
 
+		plt.savefig(f"/Volumes/Lexar/Makenna/{metaData['filename info']['full filename']}-SSCfig", dpi=500)
 	if metaData['filename info']['protocol'].upper() == 'ISO':
 		peakForce=np.mean(data['Force in (mN)'].loc[stiffnessTime - 5001:stiffnessTime-1])
 
@@ -639,8 +650,9 @@ def Makenna_Analysis(data: pd.DataFrame=None, metaData: dict=None, graph: plt.Ax
 		)
 		shortenWork=workCalculation(
 			data=shortenData, 
-			graph=graph, 
-			graphLinecolor=Colors.Firebrick, 
+			forceGraph=forceGraph,
+			lengthGraph=lengthGraph,
+			graphLinecolor=shortenColor, 
 			graphLabel='Shortening'
 		)
 		forceFollowingShortening=np.mean(data['Force in (mN)'].loc[stiffnessTime - 5001:stiffnessTime-1])
@@ -649,8 +661,9 @@ def Makenna_Analysis(data: pd.DataFrame=None, metaData: dict=None, graph: plt.Ax
 			shortenWork, 
 			forceFollowingShortening, 
 			stiffness
-		] 
-
+		]
+		plt.savefig(f"/Volumes/Lexar/Makenna/{metaData['filename info']['full filename']}-fig", dpi=500)
+	plt.close()
 	return analysisResults
 
 def findPeakForce(data: pd.DataFrame, windowLength: int) -> tuple[float, int]:

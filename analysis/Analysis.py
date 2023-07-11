@@ -51,10 +51,11 @@ def Run(fileDirectory=None, model: str=None, test: str=None, graphBool: bool=Fal
 				)
 
                 if graphBool == True:
-                    plotting.show(
-						xlabel=chosenOption['graphing']['x label'], 
-						ylabel=chosenOption['graphing']['y label']
-					)
+                    # plotting.show(
+					# 	xlabel=chosenOption['graphing']['x label'], 
+					# 	ylabel=chosenOption['graphing']['y label']
+					# )
+                    plt.show()
                 plt.close()
     
     sorted_columns=sorted(data.columns, key=lambda column: float(re.search(r'pCa (\d+\.\d+)', column).group(1) if 'pCa' in column else np.nan))

@@ -1,15 +1,14 @@
-project_dir = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
-sys.path.append(project_dir)
 #----- import python modules -----+
 import os
+import sys
+project_dir = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
+sys.path.append(project_dir)
 import numpy as np
 import pandas as pd
 from tkinter import filedialog, colorchooser
 import customtkinter
 import matplotlib.pyplot as plt
 import matplotlib.colors as mcolors
-import sys
-import os
 #----- import custom modules -----+
 from functions import plotting
 from ui import ui
