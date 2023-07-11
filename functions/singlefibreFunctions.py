@@ -10,8 +10,8 @@ from matplotlib.gridspec import GridSpec
 from scipy.optimize import curve_fit, differential_evolution
 
 #----- import custom modules -----+
-import plotting
-from classes import Colors
+import functions.plotting as plotting
+from classes.classes import Colors
 
 ms_to_seconds=1000
 

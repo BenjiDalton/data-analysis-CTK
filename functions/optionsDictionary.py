@@ -1,7 +1,7 @@
-import singlefibreFunctions as singlefibre
-import invivoFunctions as invivo
+import functions.singlefibreFunctions as singlefibre
+import functions.invivoFunctions as invivo
 import pandas as pd
-from classes import FileInfo
+from classes.classes import FileInfo
 # define lists used to generate dictionary that is used to assist with specific functions based on model and test the user is analzying
 # create dicts with key (used to define 'col basenames') and value (used to define 'graph y label')
 

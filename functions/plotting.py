@@ -1,6 +1,6 @@
 #----- import python modules -----+
 import matplotlib.colors as mcolors
-from classes import Colors
+from classes.classes import Colors
 import matplotlib.pyplot as plt
 
 # plt.rcParams.update({

@@ -6,9 +6,9 @@ import numpy as np
 import matplotlib.pyplot as plt
 
 #----- import custom modules -----+
-import plotting
-from classes import FileInfo
-from optionsDictionary import options
+import functions.plotting as plotting
+from classes.classes import FileInfo
+from functions.optionsDictionary import options
 
 plt.style.use('custom_style.mplstyle')
 

@@ -8,10 +8,10 @@ import matplotlib.pyplot as plt
 import matplotlib.colors as mcolors
 
 #----- import custom modules -----+
-import plotting, ui
-import Analysis as Analysis
-from classes import Colors
-from optionsDictionary import options
+import functions.plotting as plotting, ui.ui as ui
+import analysis.Analysis as Analysis
+from classes.classes import Colors
+from functions.optionsDictionary import options
 plt.style.use('custom_style.mplstyle')
 
 class App(customtkinter.CTk):

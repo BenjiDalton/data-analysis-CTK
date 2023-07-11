@@ -8,8 +8,8 @@ from matplotlib.gridspec import GridSpec
 from scipy.signal import butter, filtfilt
 
 #----- import custom modules -----+
-import plotting
-from classes import Colors, TwitchResults
+import functions.plotting as plotting
+from classes.classes import Colors, TwitchResults
 
 
 ms_to_seconds=1000

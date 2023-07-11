@@ -1,14 +1,14 @@
 #----- import python modules -----+
 import os
 import pandas as pd
-import plotting
+import functions.plotting as plotting
 import matplotlib.pyplot as plt
 
 #----- import custom modules -----+
-import singlefibreFunctions as singlefibre
-import invivoFunctions as invivo
-from classes import Colors, FileInfo
-from optionsDictionary import options
+import functions.singlefibreFunctions as singlefibre
+import functions.invivoFunctions as invivo
+from classes.classes import Colors, FileInfo
+from functions.optionsDictionary import options
 plt.style.use('custom_style.mplstyle')
 
 

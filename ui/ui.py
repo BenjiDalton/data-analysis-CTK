@@ -5,8 +5,8 @@ import pandas as pd
 import matplotlib.colors as mcolors
 
 #----- import custom modules -----+
-import frontEnd
-from classes import Colors
+import front_end.frontEnd as frontEnd
+from classes.classes import Colors
 
 app_width = 1400
 app_height = 700
