@@ -191,13 +191,13 @@ options = {
         },
     },
     'In Vivo': {
-        'read file': invivo.ReadFile,
+        'read file': invivo.readFile,
         'fill results': fillResults,
         'Torque-Frequency':{
-            'analyze': invivo.Torque_Frequency
+            'analyze': invivo.torqueFrequency
         },
         'Torque-Velocity':{
-            'analyze': invivo.Torque_Velocity
+            'analyze': invivo.torqueVelocity
         },
         'Fatigue': {
             'analyze': invivo.Fatigue

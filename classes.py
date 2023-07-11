@@ -32,8 +32,8 @@ class TwitchResults:
     HRT: float=None
     HRTForce: float=None
     TwitchEndIndex: int=None
-    PeakTorque: float=None
-    PeakTorqueData: pd.DataFrame=None
+    peakTorque: float=None
+    peakTorqueData: pd.DataFrame=None
 
 @dataclass
 class Colors:

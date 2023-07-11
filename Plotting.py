@@ -23,7 +23,7 @@ torqueLabel = fr'Torque (mN$\cdot$m)'
 torqueUnits = fr'mN$\cdot$m'
 rtdTitle = fr'RTD (mN$\cdot$m$\cdot$s$^\minus$$^1$)'
 rtdUnits = fr'(mN$\cdot$m$\cdot$s$^\minus$$^1$)'
-jointAngle = fr'Joint Angle (deg$\cdot$s$^\minus$$^1$)'
+jointAngleLabel = fr'Joint Angle (deg$\cdot$s$^\minus$$^1$)'
 
 edgeRGB=mcolors.hex2color(Colors.Black) + (1.0,)
 
