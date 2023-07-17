@@ -540,7 +540,7 @@ def workCalculation(data: pd.DataFrame, sampleRate: int = 10000, forceGraph: plt
 	# 	arrowprops = dict(facecolor = Colors.Black, headlength = 5, width = 1, headwidth = 5)
 	# )
 	
-	return work
+	return work, power
 
 def Binta_Analysis(data: pd.DataFrame = None, metaData: dict = None, graph: plt.Axes = None) -> dict:
 	protocolInfo = metaData['protocol info']
@@ -649,19 +649,18 @@ def Makenna_Analysis(data: pd.DataFrame = None, metaData: dict = None, graph: pl
 	data['Force in (mN)'] = data['Force in (mN)'] - np.mean(data['Force in (mN)'][baselineWindow])
 
 	stiffnessTime = data.index[data['Time (ms)'] == activationStart + 40000][0]
-	fig, forceGraph  =  plt.subplots(nrows = 1, ncols = 1, sharex = True)
+	fig, (forceGraph, lengthGraph)  =  plt.subplots(nrows = 2, ncols = 1, sharex = True)
 	graphData = data[100000:300000]
 	forceGraph.plot(graphData['Time (ms)'].div(1000), graphData['Force in (mN)'], color = Colors.Black, linewidth = graphLinewidth, label = 'Force')
 	forceGraph.set_ylabel('Force (mN)')
-	# twinX = graph.twinx()
-	# lengthGraph.plot(graphData['Time (ms)'].div(1000), graphData['Length in (mm)'], color = Colors.Black, linewidth = graphLinewidth, label = 'Length')
-	# lengthGraph.set_ylabel('Length (mm)')
+	twinX = graph.twinx()
+	lengthGraph.plot(graphData['Time (ms)'].div(1000), graphData['Length in (mm)'], color = Colors.Black, linewidth = graphLinewidth, label = 'Length')
+	lengthGraph.set_ylabel('Length (mm)')
 	plt.xlabel('Time (s)')
-	# plt.title(metaData['filename info']['full filename'])
-	# stiffness = stiffnessAnalysis(data = data, stiffness_time_seconds = stiffnessTime, graph = forceGraph)
+	plt.title(metaData['filename info']['full filename'])
+	stiffness = stiffnessAnalysis(data = data, stiffness_time_seconds = stiffnessTime, graph = forceGraph)
 
 	if metaData['filename info']['protocol'].upper() == 'SSC':
-		return
 		stretchData, shortenData = map(lambda number: getContractionData(
 			data = data, 
 			idx = number, 
@@ -691,7 +690,6 @@ def Makenna_Analysis(data: pd.DataFrame = None, metaData: dict = None, graph: pl
 			stiffness
 		]
 
-		plt.savefig(f"/Volumes/Lexar/Makenna/{metaData['filename info']['full filename']}-SSCfig", dpi = 500)
 	if metaData['filename info']['protocol'].upper() == 'ISO':
 		peakForce = np.mean(data['Force in (mN)'].loc[stiffnessTime - 5001:stiffnessTime-1])
 
@@ -699,9 +697,8 @@ def Makenna_Analysis(data: pd.DataFrame = None, metaData: dict = None, graph: pl
 			peakForce, 
 			stiffness
 		]
-		plt.savefig(f"/Volumes/Lexar/Makenna/{metaData['filename info']['full filename']}-fig", dpi = 500)
+		
 	if metaData['filename info']['protocol'].upper() == 'CONCENTRIC':
-		return
 		shortenData = getContractionData(
 			data = data, 
 			idx = 0, 
@@ -721,7 +718,8 @@ def Makenna_Analysis(data: pd.DataFrame = None, metaData: dict = None, graph: pl
 			forceFollowingShortening, 
 			stiffness
 		]
-		plt.savefig(f"/Volumes/Lexar/Makenna/{metaData['filename info']['full filename']}-fig", dpi = 500)
+	
+	# plt.savefig(f"/Volumes/Lexar/Makenna/{metaData['filename info']['full filename']}-fig", dpi = 500)
 	plt.close()
 	return analysisResults
 
