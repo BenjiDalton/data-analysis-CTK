@@ -539,8 +539,10 @@ def workCalculation(data: pd.DataFrame, sampleRate: int = 10000, forceGraph: plt
 	# 	textcoords = 'offset points',
 	# 	arrowprops = dict(facecolor = Colors.Black, headlength = 5, width = 1, headwidth = 5)
 	# )
-	
-	return work, power
+	return {
+		'Work': work,
+		'Power': power
+	}
 
 def Binta_Analysis(data: pd.DataFrame = None, metaData: dict = None, graph: plt.Axes = None) -> dict:
 	protocolInfo = metaData['protocol info']
@@ -653,7 +655,7 @@ def Makenna_Analysis(data: pd.DataFrame = None, metaData: dict = None, graph: pl
 	graphData = data[100000:300000]
 	forceGraph.plot(graphData['Time (ms)'].div(1000), graphData['Force in (mN)'], color = Colors.Black, linewidth = graphLinewidth, label = 'Force')
 	forceGraph.set_ylabel('Force (mN)')
-	twinX = graph.twinx()
+	# twinX = graph.twinx()
 	lengthGraph.plot(graphData['Time (ms)'].div(1000), graphData['Length in (mm)'], color = Colors.Black, linewidth = graphLinewidth, label = 'Length')
 	lengthGraph.set_ylabel('Length (mm)')
 	plt.xlabel('Time (s)')
@@ -661,6 +663,7 @@ def Makenna_Analysis(data: pd.DataFrame = None, metaData: dict = None, graph: pl
 	stiffness = stiffnessAnalysis(data = data, stiffness_time_seconds = stiffnessTime, graph = forceGraph)
 
 	if metaData['filename info']['protocol'].upper() == 'SSC':
+		columnHeader = f"{metaData['filename info']['stretch speed']}-{metaData['filename info']['shorten speed']}"
 		stretchData, shortenData = map(lambda number: getContractionData(
 			data = data, 
 			idx = number, 
@@ -668,7 +671,7 @@ def Makenna_Analysis(data: pd.DataFrame = None, metaData: dict = None, graph: pl
 				[0, 1]
 		)
 		peakEccentricForce = np.max(stretchData['Force in (mN)'])
-		stretchWork, shortenWork = map(
+		stretchResults, shortenResults = map(
 			lambda data, lineColor, label, annotationOffset: workCalculation(
 				data, 
 				forceGraph = forceGraph,
@@ -681,30 +684,36 @@ def Makenna_Analysis(data: pd.DataFrame = None, metaData: dict = None, graph: pl
 					['Stretch', 'Shorten'], 
 					[-100, 20]
 		)
-		netWork = shortenWork + stretchWork
-		analysisResults = [
-			peakEccentricForce, 
-			stretchWork, 
-			shortenWork, 
-			netWork, 
-			stiffness
-		]
+		netWork = shortenResults['Work'] + stretchResults['Work']
+		netPower = shortenResults['Power'] + stretchResults['Power']
+		analysisResults = {
+			f"Peak Eccentric Force during {columnHeader}": peakEccentricForce, 
+			f"Stretch Work during {columnHeader}": stretchResults['Work'],
+			f"Shorten Work during {columnHeader}": shortenResults['Work'],
+			f"Net Work during {columnHeader}": netWork,
+			f"Stretch Power during {columnHeader}": stretchResults['Power'],
+			f"Shorten Power during {columnHeader}": shortenResults['Power'],
+			f"Net Power during {columnHeader}": netPower,
+			f"Stiffness following {columnHeader}": stiffness
+		}
 
 	if metaData['filename info']['protocol'].upper() == 'ISO':
+		columnHeader = f"{metaData['filename info']['starting SL']}"
 		peakForce = np.mean(data['Force in (mN)'].loc[stiffnessTime - 5001:stiffnessTime-1])
 
-		analysisResults = [
-			peakForce, 
-			stiffness
-		]
+		analysisResults = {
+			f"Peak Force @ {columnHeader} SL": peakForce,
+			f"Stiffness  @ {columnHeader} SL": stiffness
+		}
 		
 	if metaData['filename info']['protocol'].upper() == 'CONCENTRIC':
+		columnHeader = f"{metaData['filename info']['shorten speed']}"
 		shortenData = getContractionData(
 			data = data, 
 			idx = 0, 
 			protocolInfo = protocolInfo
 		)
-		shortenWork = workCalculation(
+		shortenResults = workCalculation(
 			data = shortenData, 
 			forceGraph = forceGraph,
 			lengthGraph = lengthGraph,
@@ -713,11 +722,12 @@ def Makenna_Analysis(data: pd.DataFrame = None, metaData: dict = None, graph: pl
 		)
 		forceFollowingShortening = np.mean(data['Force in (mN)'].loc[stiffnessTime - 5001:stiffnessTime-1])
 
-		analysisResults = [
-			shortenWork, 
-			forceFollowingShortening, 
-			stiffness
-		]
+		analysisResults = {
+			f"Shorten Work during {columnHeader} Shortening": shortenResults['Work'],
+			f"Shorten Power during {columnHeader} Shortening": shortenResults['Power'],
+			f"Force following {columnHeader} Shortening": forceFollowingShortening,
+			f"Stiffness following {columnHeader} Shortening": stiffness
+		}
 	
 	# plt.savefig(f"/Volumes/Lexar/Makenna/{metaData['filename info']['full filename']}-fig", dpi = 500)
 	plt.close()

@@ -26,7 +26,7 @@ def Run(fileDirectory = None, model: str = None, test: str = None, graphBool: bo
 	excel_results = pd.DataFrame()
 	for file in allFiles:
 		graph = None
-		if test != "Binta":
+		if graphBool == True:
 			fig, graph = plotting.initialize_fig()
 		for protocol in options[model].keys():
 			if protocol.upper() in os.path.basename(file).upper():
@@ -44,25 +44,25 @@ def Run(fileDirectory = None, model: str = None, test: str = None, graphBool: bo
 				)
 
 				chosenOption = options[model][protocol]
-				if test == "Binta":
-					# try:
-					# 	for subkey in ['filename info', 'characteristics']:
-					# 		for key, value in metaData[subkey].items():
-					# 			excel_results.loc[metaData['filename info']['full filename'], key] = value
-					# 	for subresult in results:
-					# 		for column in subresult.keys():
-					# 			excel_results.loc[metaData['filename info']['full filename'], column] = subresult[column]
-					# except:
-					# 	excel_results.to_excel('/Volumes/Lexar/Binta/Data_July13.xlsx', index = True)
+				if test == "Binta" or test == "Makenna":
+					try:
+						rowIndex = metaData['filename info']['animal'] + '_' + metaData['filename info']['fibre']
+						for subkey in ['filename info', 'characteristics']:
+							for key, value in metaData[subkey].items():
+								excel_results.loc[rowIndex, key] = value
+						for column in results.keys():
+							excel_results.loc[rowIndex, column] = results[column]
+					except:
+						excel_results.to_excel('/Volumes/Lexar/Makenna/Data_July17.xlsx', index = True)
 					continue
 
-				data = options[model]['fill results'](
-					model, 
-					results,
-					metaData, 
-					chosenOption['col basenames'], 
-					chosenOption['substring']
-				)
+				# data = options[model]['fill results'](
+				# 	model, 
+				# 	results,
+				# 	metaData, 
+				# 	chosenOption['col basenames'], 
+				# 	chosenOption['substring']
+				# )
 
 				if graphBool == True:
 					# plotting.show(
@@ -71,7 +71,8 @@ def Run(fileDirectory = None, model: str = None, test: str = None, graphBool: bo
 					# )
 					plt.show()
 				plt.close()
-	excel_results.to_excel('/Volumes/Lexar/Binta/Data_July13.xlsx', index = False)
+	excel_results.to_excel('/Volumes/Lexar/Makenna/Data_July17.xlsx', index = True)
+	print("completed successfully")
 	exit()
 	sorted_columns = sorted(data.columns, key = lambda column: float(re.search(r'pCa (\d+\.\d+)', column).group(1) if 'pCa' in column else np.nan))
 	
