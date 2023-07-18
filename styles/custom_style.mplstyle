@@ -13,4 +13,4 @@ ytick.labelsize: 14
 errorbar.capsize: 4
 lines.markersize: 16
 lines.markeredgewidth: 0
-lines.linewidth: 2
+lines.linewidth: 1.5

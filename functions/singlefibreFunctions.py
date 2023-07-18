@@ -6,14 +6,13 @@ import pandas as pd
 import numpy as np
 from collections import defaultdict
 import matplotlib.pyplot as plt
-from matplotlib.gridspec import GridSpec
 from scipy.optimize import curve_fit, differential_evolution
 
 #----- import custom modules -----+
 import functions.plotting as plotting
 from classes.classes import Colors
 
-ms_to_seconds = 1000
+msToSeconds = 1000
 
 class Error(Exception):
 	pass
@@ -164,20 +163,6 @@ def readFile(file: str = None, model: str = None, test: str = None, user: str = 
 		# return data, protocolInfo, characteristics, filenameInfo
 		return data, metaData
 
-def stiffnessAnalysis(data: pd.DataFrame, stiffness_time_seconds: float|int, sampleRate: int = 10000, graph: plt.Axes  =  None):
-	if stiffness_time_seconds < 100:
-		stiffnessTime = stiffness_time_seconds * sampleRate
-	else:
-		stiffnessTime = stiffness_time_seconds
-	stiffness_window = range(int(stiffnessTime) - 100, int(stiffnessTime) + 200)
-	forceWindow = range(int(stiffnessTime) - 5001, int(stiffnessTime) - 1)
-	dF = (data['Force in (mN)'][stiffness_window]).max() - (data['Force in (mN)'][forceWindow]).mean()
-	dLo = (data['Normalized Length'][stiffness_window]).max() - (data['Normalized Length'][forceWindow]).mean()
-	stiffness = dF/dLo
-	# graph.plot(data['Time (ms)'].div(1000)[forceWindow], data['Force in (mN)'][forceWindow], color = Colors.SkyBlue, label = 'Peak force')
-
-	return stiffness
-
 def pCaAnalysis(data: pd.DataFrame = None, metaData: dict = None, graph: plt.Axes = None) -> tuple[pd.DataFrame, float, float]:
 	"""
 	Define peak force as the highest rolling 500 ms average \n
@@ -186,31 +171,27 @@ def pCaAnalysis(data: pd.DataFrame = None, metaData: dict = None, graph: plt.Axe
 	 - Peak force
 	 - Specific force (i.e., peak force / CSA)
 	"""
-	# Subtract baseline force (first 50 ms of test) from force signal
-	baselineForce: float = data['Force in (mN)'][5000:5500].mean()
-	data['Force in (mN)'] = data['Force in (mN)'] - baselineForce
 
-	# Use a subset of the test (times corresponding to 15-30s following test start) to find peak. 
-	# First 15s are ignored so that bath changes aren't captured
-	subsetData = data[150000:300000]
+	removeBaseline(data, range(int(1000), int(5000)))
 	
 	# Find highest rolling 500 ms window in force
 	windowLength = 5000
 	graphWindow = int(windowLength / 2)
-	peakForce, peakIndex = findPeakForce(data = subsetData['Force in (mN)'], windowLength = windowLength)
+	peakForce, peakIndex = findPeakForce(data['Force in (mN)'], windowLength)
 
-	graph.plot(data['Time (ms)'].div(ms_to_seconds), data['Force in (mN)'], color = Colors.Black)
-	graph.plot(data['Time (ms)'].div(ms_to_seconds)[peakIndex - graphWindow: peakIndex + graphWindow], data['Force in (mN)'][peakIndex - graphWindow: peakIndex + graphWindow], color = Colors.Firebrick, label = 'Peak Force')
+	graph.plot(data['Time (ms)'].div(msToSeconds), data['Force in (mN)'], color = Colors.Black)
+	graph.plot(data['Time (ms)'].div(msToSeconds)[peakIndex - graphWindow: peakIndex + graphWindow], data['Force in (mN)'][peakIndex - graphWindow: peakIndex + graphWindow], color = Colors.Firebrick, label = 'Peak Force')
 	graph.text(
 		x = 0.5, y = 0.1,
 		s = f'Peak force = {peakForce:.2f}uN', 
 			transform = plt.gca().transAxes,
 			horizontalalignment = 'center',
 			verticalalignment = 'center')
-	
-	analysisResults = [peakForce, peakForce/metaData['characteristics']['CSA']]
 
-	return analysisResults
+	return {
+		'Absolute Force': peakForce, 
+		'Specific Force': peakForce/metaData['characteristics']['CSA']
+	}
 
 def ktrAnalysis(data: pd.DataFrame = None, metaData: dict = None, graph: plt.Axes = None) -> tuple[float, float, float, pd.Series, pd.Series, float]:
 	"""
@@ -268,8 +249,8 @@ def ktrAnalysis(data: pd.DataFrame = None, metaData: dict = None, graph: plt.Axe
 	ktrStart = data.index[data['Time (ms)'] == ktrRestretch][0]
 	ktrEnd = data.index[data['Time (ms)'] == stiffnessPostKtr-500][0]
 
-	data['Time (ms)'] = data['Time (ms)'].div(1000)
-	stiffness = stiffnessAnalysis(data = data, stiffness_time_seconds = 0.9, sampleRate = metaData['protocol info']['sample rate'], graph = graph)
+	data['Time (ms)'] = data['Time (ms)'].div(msToSeconds)
+	stiffness = stiffnessAnalysis(data = data, stiffnessTimeSecs = 0.9, sampleRate = metaData['protocol info']['sample rate'], graph = graph)
 	
 	modelData = pd.DataFrame(data[['Time (ms)', 'Force in (mN)']][ktrStart:ktrEnd])
 
@@ -284,7 +265,7 @@ def ktrAnalysis(data: pd.DataFrame = None, metaData: dict = None, graph: plt.Axe
 	ktrParameters = generate_Initial_Parameters(xData, yData)
 
 	# maxfev = number of iterations code will attempt to find optimal curve fit
-	maxfev:int = 1000
+	maxfev:int = msToSeconds
 	try:
 		fittedParameters, pcov = curve_fit(ktrModel, xData, yData, ktrParameters, maxfev = maxfev)
 	except:
@@ -378,12 +359,7 @@ def powerAnalysis(data: pd.DataFrame = None, metaData: dict = None) -> tuple[flo
 	TextOffset = 0
 	AllColors = [Colors.PowerColors[Load] for Load in powerLoads]
 	
-	fig = plt.figure()
-	fig.canvas.mpl_connect('key_press_event', plotting.keyPress)
-	
-	gridSpecs = GridSpec(2, 1, fig)
-	forceGraph = fig.add_subplot(gridSpecs[0, 0])
-	lengthGraph = fig.add_subplot(gridSpecs[1, 0])
+	forceGraph, lengthGraph = plotting.createForceLengthFig()
 
 	for Plot, Variable in zip([forceGraph, lengthGraph], ['Force', 'Length']):
 		Plot.plot(
@@ -461,7 +437,7 @@ def powerAnalysis(data: pd.DataFrame = None, metaData: dict = None) -> tuple[flo
 
 	return maxForce, ForceVelocityData
 
-def rFEAnalysis(data: pd.DataFrame = None, metaData: dict = None, graph: plt.Axes = None, graphColor: Colors = None, label: str = None) -> tuple[pd.DataFrame, float, float, float]:
+def residualForceAnalysis(data: pd.DataFrame = None, metaData: dict = None, forceGraph: plt.Axes = None) ->dict[float, float, float, float]:
 	"""
 	Returns:
 	 - Orginal dataframe (with baseline force subtracted from force column)
@@ -469,223 +445,130 @@ def rFEAnalysis(data: pd.DataFrame = None, metaData: dict = None, graph: plt.Axe
 	 - Passive force (i.e., average force during final 500 ms of test)
 	 - Stiffness (i.e., \u0394 force / \u0394 normalized length)
 	"""
-	protocolInfo = metaData['protocol info']
-	activationStart = protocolInfo['Bath']['time'][protocolInfo['Bath']['info']['bath'].index('4')]
 
-	stiffnessTime = data.index[data['Time (ms)'] == activationStart + 40000][0]
-	baselineWindow = range(int(100000), int(105000))
-	forceWindow = range(int(stiffnessTime) - 5000, int(stiffnessTime) - 1)
+	removeBaseline(data, range(int(100000), int(105000)))
 	passiveWindow = range(len(data) - 5001, len(data)-1)
 
-	# Calculadora
-	data['Force in (mN)'] = data['Force in (mN)'] - np.mean(data['Force in (mN)'][baselineWindow])
-
-	stiffness = stiffnessAnalysis(data = data, stiffness_time_seconds = stiffnessTime, graph = graph)
-
-	peakForce = np.mean(data['Force in (mN)'][forceWindow])
-	specificForce = peakForce / metaData['characteristics']['CSA']
-
+	stiffnessResults = stiffnessAnalysis(data, findStiffnessTime(data, metaData, 30000), 10000, forceGraph)
 	passiveForce = np.mean(data['Force in (mN)'][passiveWindow])
 
-	# graphLinewidth = 1.5 
-	# graphData = pd.DataFrame(data[['Time (ms)','Length in (mm)', 'Force in (mN)']])
-	# graphData = graphData[100000:660000].reset_index(drop = True)
-
-	# fig, (forceGraph, lengthGraph)  =  plt.subplots(nrows = 2, ncols = 1, sharex = True)
-	# forceGraph.plot(graphData['Time (ms)'].div(1000), graphData['Force in (mN)'], color = graphColor, linewidth = graphLinewidth, label = label)
-	# lengthGraph.plot(graphData['Time (ms)'].div(1000), graphData['Length in (mm)'], color = graphColor, linewidth = graphLinewidth, label = label)
-	# plt.legend()
-	if 'protocol descriptor' in metaData['filename info']:
-		label = f"{metaData['filename info']['protocol descriptor']} {label}"
-	if 'starting SL' in metaData['filename info']:
-		label = f"{metaData['filename info']['starting SL']}-{metaData['filename info']['ending SL']} {label}"
 	return {
-			f"{label} Force": peakForce,
-			f"{label} Specific Force": specificForce,
-			f"{label} Passive Force": passiveForce,
-			f"{label} Stiffness": stiffness,
+			f"Asbolute Force": stiffnessResults['Force before Stiffness'],
+			f"Specific Force": stiffnessResults['Force before Stiffness'] / metaData['characteristics']['CSA'],
+			f"Passive Force": passiveForce,
+			f"Stiffness": stiffnessResults['Stiffness'],
 			}
 
 def getContractionData(data: pd.DataFrame = None, idx: int = None, protocolInfo: dict = None) -> pd.DataFrame:
 	lengthStart = protocolInfo['Length-Ramp']['time'][idx]
-	lengthEnd = lengthStart + (float(protocolInfo['Length-Ramp']['info'][idx].split()[2]) * 1000)
+	lengthEnd = lengthStart + (float(protocolInfo['Length-Ramp']['info'][idx].split()[2]) * msToSeconds)
 	lengthStartIndex = data.index[data['Time (ms)'] == float(lengthStart)][0]
 	lengthEndIndex = data.index[data['Time (ms)'] == float(lengthEnd)][0]
 	lengthWindow = range(int(lengthStartIndex), int(lengthEndIndex))
 
-	return data.loc[
-		lengthWindow, 
-		['Time (ms)', 
-		'Length in (mm)', 
-		'Force in (mN)']
-		]
+	return data.loc[lengthWindow, ['Time (ms)', 'Length in (mm)', 'Force in (mN)']]
 
 def workCalculation(data: pd.DataFrame, sampleRate: int = 10000, forceGraph: plt.Axes = None, lengthGraph: plt.Axes = None,  graphLinecolor: Colors = None, graphLabel: str = None, annotationOffset: int = 20) -> float:
-	ms_to_second = 1000
 	lengthChange = (data['Length in (mm)'].iloc[-1] - data['Length in (mm)'].iloc[0]) * -1
 	cumForce = np.max(data['Force in (mN)'].cumsum())
-	contractionDuration = (data['Time (ms)'].iloc[-1] - data['Time (ms)'].iloc[-0]) / ms_to_second
+	contractionDuration = (data['Time (ms)'].iloc[-1] - data['Time (ms)'].iloc[-0]) / msToSeconds
 	work = ((cumForce * lengthChange)/(contractionDuration)) / sampleRate
 	power = work / contractionDuration
 
-	forceGraph.plot(data['Time (ms)'].div(1000), data['Force in (mN)'], color = graphLinecolor, linewidth = 1.5, label = graphLabel)
-	lengthGraph.plot(data['Time (ms)'].div(1000), data['Length in (mm)'], color = graphLinecolor, linewidth = 1.5, label = graphLabel)
-	forceGraph.fill_between(data['Time (ms)'].div(1000), y1 = data['Force in (mN)'], color = graphLinecolor,  alpha = 0.4)
-	# graph.annotate(
-	# 	text = f'Work = {work:.4f}',
-	# 	xy = (np.mean(data['Time (ms)'].div(1000)), np.mean(data['Force in (mN)'])),
-	# 	xycoords = 'data',
-	# 	xytext = (annotationOffset, 20),
-	# 	textcoords = 'offset points',
-	# 	arrowprops = dict(facecolor = Colors.Black, headlength = 5, width = 1, headwidth = 5)
-	# )
+	forceGraph.plot(data['Time (ms)'].div(msToSeconds), data['Force in (mN)'], color = graphLinecolor, label = graphLabel)
+	lengthGraph.plot(data['Time (ms)'].div(msToSeconds), data['Length in (mm)'], color = graphLinecolor, label = graphLabel)
+	forceGraph.fill_between(data['Time (ms)'].div(msToSeconds), y1 = data['Force in (mN)'], color = graphLinecolor,  alpha = 0.4)
 	return {
 		'Work': work,
 		'Power': power
 	}
 
 def Binta_Analysis(data: pd.DataFrame = None, metaData: dict = None, graph: plt.Axes = None) -> dict:
+	analysisResults = {}
 	protocolInfo = metaData['protocol info']
-	activationStart = protocolInfo['Bath']['time'][protocolInfo['Bath']['info']['bath'].index('4')]
-
 	secondFrameIndex = data.index[data['Time (ms)'] == float(protocolInfo['Data-Enable']['time'][1])][0]
 	firstFrameData = pd.DataFrame(data[:secondFrameIndex], dtype = float).reset_index(drop = True)
 	secondFrameData = pd.DataFrame(data[secondFrameIndex:], dtype = float).reset_index(drop = True)
 	firstFrameData['Time (ms)'] = firstFrameData['Time (ms)'] - firstFrameData['Time (ms)'][0]
 	secondFrameData['Time (ms)'] = secondFrameData['Time (ms)'] - secondFrameData['Time (ms)'][0]
-	
-	
-	baselineWindow = range(int(100000), int(105000))
-	graphLinewidth = 1.5 
-	window_size  =  50
-	threshold  =  3.0
-	
-	fig = plt.figure()
-	gs = GridSpec(2, 1, height_ratios = [3, 1])
-	
-	lengthGraph = plt.subplot(gs[1]) 
-	forceGraph = plt.subplot(gs[0])
+
+	forceGraph, lengthGraph = plotting.createForceLengthFig()
 
 
 	if metaData['filename info']['protocol'].upper() == 'RFD':
-		forceDepressionResults, isoResults = map(lambda data, color, label: rFEAnalysis(
-			data,
-			metaData, 
-			graph, 
-			color, 
-			label), 
-				[firstFrameData, secondFrameData], 
-				[Colors.Black, Colors.Perrywinkle], 
-				['rFD', 'ISO']
-		)
+		forceDepressionResults, isoResults = map(lambda data: residualForceAnalysis(data, metaData, forceGraph), [firstFrameData, secondFrameData])
 
-		for df, graphColor, label in zip([firstFrameData, secondFrameData], [Colors.Perrywinkle, Colors.Black], ['rFD', 'ISO']):
-			df['Force in (mN)'] = df['Force in (mN)'] - np.mean(df['Force in (mN)'][baselineWindow])
-			graphData = df[100000:660000].reset_index(drop = True)
-			actStart  =  graphData['Time (ms)'].index()
-			rollingAvg  =  graphData['Force in (mN)'][int(activationStart)*10:].rolling(window = 5000).mean()
-			highestAvg  =  rollingAvg.max()
+		# for df, graphColor, label in zip([firstFrameData, secondFrameData], [Colors.Perrywinkle, Colors.Black], ['rFD', 'ISO']):
+		# 	removeBaseline(df, range(int(100000), int(105000)))
+		# 	graphData = df[100000:700000].reset_index(drop = True)
 
-			peaks  =  np.where(np.abs(graphData['Force in (mN)'][int(activationStart)*10:int(activationStart)*10 + 25000]) > highestAvg)
-			print(peaks[0])
-			for i in peaks[0]:
-				graphData.loc[int(activationStart)*10 + i, 'smoothed']  =  graphData['Force in (mN)'][int(activationStart)*10 + i] / 2
-
-			forceGraph.plot(graphData['Time (ms)'].div(1000), graphData['Force in (mN)'], color = graphColor, linewidth = graphLinewidth, label = label)
-			lengthGraph.plot(graphData['Time (ms)'].div(1000), graphData['Length in (mm)'], color = graphColor, linewidth = graphLinewidth, label = label)
-			plt.plot(graphData['Time (ms)'].div(1000), graphData['smoothed'], color = 'red')
-			# plt.show()
+		# 	forceGraph.plot(graphData['Time (ms)'].div(msToSeconds), graphData['Force in (mN)'], color = graphColor, label = label)
+		# 	lengthGraph.plot(graphData['Time (ms)'].div(msToSeconds), graphData['Length in (mm)'], color = graphColor, label = label)
 		
-		analysisResults = [
-			forceDepressionResults, 
-			isoResults
-		]
-		
+		columnHeader = f"{metaData['filename info']['protocol descriptor']}"
+		for columnBasename, value in forceDepressionResults.items():
+			analysisResults[f"{columnBasename} - {columnHeader} rFD"] = value
+		for columnBasename, value in isoResults.items():
+			analysisResults[f"{columnBasename} - {columnHeader} ISO"] = value
+
 	if metaData['filename info']['protocol'].upper() == 'RFE':
-		isoResults, forceEnhancementResults = map(lambda data, color, label: rFEAnalysis(
-			data, 
-			metaData, 
-			graph, 
-			color, 
-			label), 
-				[firstFrameData, secondFrameData], 
-				[Colors.Black, Colors.Firebrick], 
-				['ISO', 'rFE']
-		)
+		isoResults, forceEnhancementResults = map(lambda data: residualForceAnalysis(data, metaData, forceGraph), [firstFrameData, secondFrameData])
 
-		for df, graphColor, label in zip([firstFrameData, secondFrameData], [Colors.Black, Colors.Perrywinkle], ['ISO', 'rFE']):
-			df['Force in (mN)'] = df['Force in (mN)'] - np.mean(df['Force in (mN)'][baselineWindow])
-			graphData = df[100000:660000].reset_index(drop = True)
-			forceGraph.plot(graphData['Time (ms)'].div(1000), graphData['Force in (mN)'], color = graphColor, linewidth = graphLinewidth, label = label)
-			lengthGraph.plot(graphData['Time (ms)'].div(1000), graphData['Length in (mm)'], color = graphColor, linewidth = graphLinewidth, label = label)
-			
-			smoothed_data  =  np.convolve(graphData['Force in (mN)'], np.ones(window_size) / window_size, mode = 'same')
-			plt.plot(graphData['Time (ms)'].div(1000), smoothed_data, color = 'black')
-			# plt.show()
+		# for df, graphColor, label in zip([firstFrameData, secondFrameData], [Colors.Black, Colors.Perrywinkle], ['ISO', 'rFE']):
+		# 	removeBaseline(df, range(int(100000), int(105000)))
+		# 	graphData = df[100000:700000].reset_index(drop = True)
 
-		
-		analysisResults = [
-			isoResults, 
-			forceEnhancementResults
-		]
+		# 	forceGraph.plot(graphData['Time (ms)'].div(msToSeconds), graphData['Force in (mN)'], color = graphColor, label = label)
+		# 	lengthGraph.plot(graphData['Time (ms)'].div(msToSeconds), graphData['Length in (mm)'], color = graphColor, label = label)
+
+		columnHeader = f"{metaData['filename info']['starting SL']}-{metaData['filename info']['ending SL']}"
+		for columnBasename, value in forceEnhancementResults.items():
+			analysisResults[f"{columnBasename} - {columnHeader} rFE"] = value
+		for columnBasename, value in isoResults.items():
+			analysisResults[f"{columnBasename} - {columnHeader} ISO"] = value
 	
-	forceGraph.set_ylabel('Force (mN)')
-	forceGraph.set_xticklabels([])
-	lengthGraph.set_ylabel('Length (mm)')
-	lengthGraph.set_xlabel('Time (s)')
-	plt.legend()
-	plt.show()
-	plt.savefig(f"/Volumes/Lexar/Binta/{metaData['filename info']['full filename']}-fig", dpi = 500)
+	# plt.legend()
+	# plt.show()
+	# plt.savefig(f"/Volumes/Lexar/Binta/{metaData['filename info']['full filename']}-fig", dpi = 500)
 	plt.close()
 	return analysisResults
 
 def Makenna_Analysis(data: pd.DataFrame = None, metaData: dict = None, graph: plt.Axes = None) -> dict:
 	protocolInfo = metaData['protocol info']
-	activationStart = protocolInfo['Bath']['time'][protocolInfo['Bath']['info']['bath'].index('4')]
-	graphLinewidth = 1.5
+	removeBaseline(data, range(int(100000), int(105000)))
+
 	stretchColor = '#f67e2a'
 	shortenColor = '#31d3db'
-	stiffness = 0
-
-	baselineWindow = range(int(100000), int(105000))
-	data['Force in (mN)'] = data['Force in (mN)'] - np.mean(data['Force in (mN)'][baselineWindow])
-
-	stiffnessTime = data.index[data['Time (ms)'] == activationStart + 40000][0]
-	fig, (forceGraph, lengthGraph)  =  plt.subplots(nrows = 2, ncols = 1, sharex = True)
-	graphData = data[100000:300000]
-	forceGraph.plot(graphData['Time (ms)'].div(1000), graphData['Force in (mN)'], color = Colors.Black, linewidth = graphLinewidth, label = 'Force')
-	forceGraph.set_ylabel('Force (mN)')
-	# twinX = graph.twinx()
-	lengthGraph.plot(graphData['Time (ms)'].div(1000), graphData['Length in (mm)'], color = Colors.Black, linewidth = graphLinewidth, label = 'Length')
-	lengthGraph.set_ylabel('Length (mm)')
-	plt.xlabel('Time (s)')
-	plt.title(metaData['filename info']['full filename'])
-	stiffness = stiffnessAnalysis(data = data, stiffness_time_seconds = stiffnessTime, graph = forceGraph)
-
+	forceGraph, lengthGraph = plotting.createForceLengthFig()
+	graphData = data[200000:600000]
+	forceGraph.plot(graphData['Time (ms)'].div(msToSeconds), graphData['Force in (mN)'], color = Colors.Black, label = 'Force')
+	lengthGraph.plot(graphData['Time (ms)'].div(msToSeconds), graphData['Length in (mm)'], color = Colors.Black, label = 'Length')
+	forceGraph.set_title(metaData['filename info']['full filename'])
+	
+	stiffnessResults = stiffnessAnalysis(data, findStiffnessTime(data, metaData, 40000), 10000, forceGraph)
 	if metaData['filename info']['protocol'].upper() == 'SSC':
-		columnHeader = f"{metaData['filename info']['stretch speed']}-{metaData['filename info']['shorten speed']}"
-		stretchData, shortenData = map(lambda number: getContractionData(
-			data = data, 
-			idx = number, 
-			protocolInfo = protocolInfo), 
-				[0, 1]
-		)
+		stretchData, shortenData = map(lambda number: getContractionData(data, number, protocolInfo), [0, 1])
 		peakEccentricForce = np.max(stretchData['Force in (mN)'])
+		
 		stretchResults, shortenResults = map(
 			lambda data, lineColor, label, annotationOffset: workCalculation(
 				data, 
-				forceGraph = forceGraph,
-				lengthGraph = lengthGraph, 
-				graphLinecolor = lineColor, 
-				graphLabel = label, 
-				annotationOffset = annotationOffset), 
+				10000,
+				forceGraph,
+				lengthGraph, 
+				lineColor, 
+				label, 
+				annotationOffset), 
 					[stretchData, shortenData], 
 					[stretchColor, shortenColor], 
 					['Stretch', 'Shorten'], 
 					[-100, 20]
 		)
+		
 		netWork = shortenResults['Work'] + stretchResults['Work']
 		netPower = shortenResults['Power'] + stretchResults['Power']
+		
+		columnHeader = f"{metaData['filename info']['stretch speed']}-{metaData['filename info']['shorten speed']}"
 		analysisResults = {
 			f"Peak Eccentric Force during {columnHeader}": peakEccentricForce, 
 			f"Stretch Work during {columnHeader}": stretchResults['Work'],
@@ -694,44 +577,59 @@ def Makenna_Analysis(data: pd.DataFrame = None, metaData: dict = None, graph: pl
 			f"Stretch Power during {columnHeader}": stretchResults['Power'],
 			f"Shorten Power during {columnHeader}": shortenResults['Power'],
 			f"Net Power during {columnHeader}": netPower,
-			f"Stiffness following {columnHeader}": stiffness
+			f"Absolute Force following {columnHeader}": stiffnessResults['Force before Stiffness'],
+			f"Specific Force following {columnHeader}": stiffnessResults['Force before Stiffness'] / metaData['characteristics']['CSA'],
+			f"Stiffness following {columnHeader}": stiffnessResults['Stiffness']
 		}
 
 	if metaData['filename info']['protocol'].upper() == 'ISO':
 		columnHeader = f"{metaData['filename info']['starting SL']}"
-		peakForce = np.mean(data['Force in (mN)'].loc[stiffnessTime - 5001:stiffnessTime-1])
-
 		analysisResults = {
-			f"Peak Force @ {columnHeader} SL": peakForce,
-			f"Stiffness  @ {columnHeader} SL": stiffness
+			f"Absolute Force @ {columnHeader} SL": stiffnessResults['Force before Stiffness'],
+			f"Specific Force @ {columnHeader}": stiffnessResults['Force before Stiffness'] / metaData['characteristics']['CSA'],
+			f"Stiffness  @ {columnHeader} SL": stiffnessResults['Stiffness']
 		}
 		
 	if metaData['filename info']['protocol'].upper() == 'CONCENTRIC':
-		columnHeader = f"{metaData['filename info']['shorten speed']}"
-		shortenData = getContractionData(
-			data = data, 
-			idx = 0, 
-			protocolInfo = protocolInfo
-		)
-		shortenResults = workCalculation(
-			data = shortenData, 
-			forceGraph = forceGraph,
-			lengthGraph = lengthGraph,
-			graphLinecolor = shortenColor, 
-			graphLabel = 'Shortening'
-		)
-		forceFollowingShortening = np.mean(data['Force in (mN)'].loc[stiffnessTime - 5001:stiffnessTime-1])
+		shortenData = getContractionData(data, 0, protocolInfo)
+		shortenResults = workCalculation(shortenData, 10000, forceGraph, lengthGraph, shortenColor, 'Shortening')
 
+		columnHeader = f"{metaData['filename info']['shorten speed']}"
 		analysisResults = {
 			f"Shorten Work during {columnHeader} Shortening": shortenResults['Work'],
 			f"Shorten Power during {columnHeader} Shortening": shortenResults['Power'],
-			f"Force following {columnHeader} Shortening": forceFollowingShortening,
-			f"Stiffness following {columnHeader} Shortening": stiffness
+			f"Absolute Force following {columnHeader}": stiffnessResults['Force before Stiffness'],
+			f"Specific Force following {columnHeader}": stiffnessResults['Force before Stiffness'] / metaData['characteristics']['CSA'],
+			f"Stiffness following {columnHeader}": stiffnessResults['Stiffness']
 		}
 	
 	# plt.savefig(f"/Volumes/Lexar/Makenna/{metaData['filename info']['full filename']}-fig", dpi = 500)
+	# plt.show()
 	plt.close()
 	return analysisResults
+
+def findStiffnessTime(data: pd.DataFrame = None, metaData: dict = None, activationDuration: int = None):
+	protocolInfo = metaData['protocol info']
+	activationStart = protocolInfo['Bath']['time'][protocolInfo['Bath']['info']['bath'].index('4')]
+	return data.index[data['Time (ms)'] == activationStart + activationDuration][0]
+
+def stiffnessAnalysis(data: pd.DataFrame, stiffnessTimeSecs: float|int, sampleRate: int = 10000, graph: plt.Axes  =  None):
+	if stiffnessTimeSecs < 100:
+		stiffnessTime = stiffnessTimeSecs * sampleRate
+	else:
+		stiffnessTime = stiffnessTimeSecs
+	stiffnessWindow = range(int(stiffnessTime) - 100, int(stiffnessTime) + 200)
+	forceWindow = range(int(stiffnessTime) - 5001, int(stiffnessTime) - 1)
+	dF = (data['Force in (mN)'][stiffnessWindow]).max() - (data['Force in (mN)'][forceWindow]).mean()
+	dLo = (data['Normalized Length'][stiffnessWindow]).max() - (data['Normalized Length'][forceWindow]).mean()
+	stiffness = dF/dLo
+	forceBeforeStiffness = np.mean(data['Force in (mN)'][forceWindow])
+	if graph != None:
+		graph.plot(data['Time (ms)'].div(msToSeconds)[forceWindow], data['Force in (mN)'][forceWindow], linewidth = 10, color = Colors.SkyBlue, label = 'Peak force')
+	return {
+		'Stiffness': stiffness, 
+		'Force before Stiffness': forceBeforeStiffness
+	}
 
 def findPeakForce(data: pd.DataFrame, windowLength: int) -> tuple[float, int]:
 	temp = pd.DataFrame()
@@ -746,3 +644,10 @@ def findPeakForce(data: pd.DataFrame, windowLength: int) -> tuple[float, int]:
 		peakIndex = 0 
 
 	return peakForce, peakIndex
+
+def removeBaseline(data: pd.DataFrame = None, baselineWindow: range = None):
+	"""
+	subtract baseline force from force signal
+	"""
+	data['Force in (mN)'] = data['Force in (mN)'] - np.mean(data['Force in (mN)'][baselineWindow])
+	return 

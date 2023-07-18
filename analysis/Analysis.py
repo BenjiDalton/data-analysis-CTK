@@ -4,10 +4,11 @@ import re
 import pandas as pd
 import numpy as np
 import matplotlib.pyplot as plt
+from tkinter import filedialog
+from datetime import date
 
 #----- import custom modules -----+
 import functions.plotting as plotting
-from classes.classes import FileInfo
 from functions.optionsDictionary import options
 plt.style.use('styles/custom_style.mplstyle')
 
@@ -23,37 +24,31 @@ def Run(fileDirectory = None, model: str = None, test: str = None, graphBool: bo
 	if isinstance(fileDirectory, list):
 		allFiles = fileDirectory
 
-	excel_results = pd.DataFrame()
+	excelResults = pd.DataFrame()
 	for file in allFiles:
 		graph = None
-		if graphBool == True:
-			fig, graph = plotting.initialize_fig()
+		if graphBool == True and test != 'Binta' and test != 'Makenna':
+			fig, graph = plotting.initializeFig()
 		for protocol in options[model].keys():
 			if protocol.upper() in os.path.basename(file).upper():
 				
 				chosenOption = options[model][test]
-				data, metaData  =  options[model]['read file'](
-					file = file, 
-					model = model, 
-					test = protocol
-				)
-				results = chosenOption['analyze'](
-					data, 
-					metaData, 
-					graph
-				)
+				data, metaData = options[model]['read file'](file, model, protocol)
+				results = chosenOption['analyze'](data, metaData, graph)
 
 				chosenOption = options[model][protocol]
 				if test == "Binta" or test == "Makenna":
 					try:
 						rowIndex = metaData['filename info']['animal'] + '_' + metaData['filename info']['fibre']
 						for subkey in ['filename info', 'characteristics']:
-							for key, value in metaData[subkey].items():
-								excel_results.loc[rowIndex, key] = value
-						for column in results.keys():
-							excel_results.loc[rowIndex, column] = results[column]
-					except:
-						excel_results.to_excel('/Volumes/Lexar/Makenna/Data_July17.xlsx', index = True)
+							for column, value in metaData[subkey].items():
+								excelResults.loc[rowIndex, column] = value
+						for column, value in results.items():
+							excelResults.loc[rowIndex, column] = value
+					except Exception as e:
+						print(f"An error occurred: {str(e)} in {file}")
+						excelFilename = filedialog.asksaveasfilename(defaultextension='xlsx')
+						excelResults.to_excel(excelFilename, index = True)
 					continue
 
 				# data = options[model]['fill results'](
@@ -71,7 +66,13 @@ def Run(fileDirectory = None, model: str = None, test: str = None, graphBool: bo
 					# )
 					plt.show()
 				plt.close()
-	excel_results.to_excel('/Volumes/Lexar/Makenna/Data_July17.xlsx', index = True)
+
+	# try:
+	# 	excelFilename = filedialog.asksaveasfilename(defaultextension='xlsx')
+	# 	excelResults.to_excel(excelFilename, index = True)
+	# except:
+	# 	excelResults.to_excel(os.path.dirname(file) + f'/results{date.today()}.xlsx', index = True)
+	excelResults.to_excel(os.path.dirname(file) + f'/Binta_results{date.today()}.xlsx', index = True)
 	print("completed successfully")
 	exit()
 	sorted_columns = sorted(data.columns, key = lambda column: float(re.search(r'pCa (\d+\.\d+)', column).group(1) if 'pCa' in column else np.nan))
