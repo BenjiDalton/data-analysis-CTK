@@ -18,7 +18,7 @@ def Run(fileDirectory = None, model: str = None, test: str = None, graphBool: bo
 	if isinstance(fileDirectory, str):
 		for root, subdirs, files in os.walk(fileDirectory):
 			for file in files:
-				if file.lower().__contains__('store') or file.lower().__contains__('fileDirectory'):
+				if file.lower().__contains__('store') or file.lower().__contains__('directory'):
 					continue
 				allFiles.append(os.path.join(root, file))
 	if isinstance(fileDirectory, list):
