@@ -413,8 +413,8 @@ def powerAnalysis(data: pd.DataFrame = None, metaData: dict = None) -> tuple[flo
 def residualForceAnalysis(data: pd.DataFrame = None, metaData: dict = None, forceGraph: plt.Axes = None) ->dict[float, float, float, float]:
 	"""
 	Returns:
-	 - Orginal dataframe (with baseline force subtracted from force column)
 	 - Peak force (i.e., average force during 500 ms prior to rFE stretch)
+	 - Specific force (peak force / CSA)
 	 - Passive force (i.e., average force during final 500 ms of test)
 	 - Stiffness (i.e., \u0394 force / \u0394 normalized length)
 	"""
@@ -433,6 +433,9 @@ def residualForceAnalysis(data: pd.DataFrame = None, metaData: dict = None, forc
 			}
 
 def getContractionData(data: pd.DataFrame = None, idx: int = None, protocolInfo: dict = None) -> pd.DataFrame:
+	"""
+	get subset of data where contraction occurs
+	"""
 	lengthStart = protocolInfo['Length-Ramp']['time'][idx]
 	lengthEnd = lengthStart + (float(protocolInfo['Length-Ramp']['info'][idx].split()[2]) * msToSeconds)
 	lengthStartIndex = data.index[data['Time (ms)'] == float(lengthStart)][0]
@@ -442,6 +445,9 @@ def getContractionData(data: pd.DataFrame = None, idx: int = None, protocolInfo:
 	return data.loc[lengthWindow, ['Time (ms)', 'Length in (mm)', 'Force in (mN)']]
 
 def workCalculation(data: pd.DataFrame, sampleRate: int = 10000, forceGraph: plt.Axes = None, lengthGraph: plt.Axes = None,  graphLinecolor: Colors = None, graphLabel: str = None, annotationX = None, annotationY = None) -> float:
+	"""
+	calculate work and power
+	"""
 	lengthChange = (data['Length in (mm)'].iloc[-1] - data['Length in (mm)'].iloc[0]) * -1
 	cumForce = np.max(data['Force in (mN)'].cumsum())
 	contractionDuration = (data['Time (ms)'].iloc[-1] - data['Time (ms)'].iloc[-0]) / msToSeconds
@@ -618,14 +624,16 @@ def stiffnessAnalysis(data: pd.DataFrame, stiffnessTimeSecs: float|int, sampleRa
 			}
 
 def findPeakForce(data: pd.DataFrame, windowLength: int) -> tuple[float, int]:
+	"""
+	find highest rolling of window length average of force signal
+	"""
 	temp = pd.DataFrame()
 	temp['Rolling Mean'] = pd.DataFrame(data.rolling(window = windowLength, center = True).mean())
 
 	peakForce = temp['Rolling Mean'].max()
 	try:
-		peakIndex = temp['Rolling Mean'].argmax() + data.index[0] # add first index to peak force index to get the true index of peak force
+		peakIndex = temp['Rolling Mean'].argmax() + data.index[0] #----- add first index to peak force index to get the true index of peak force -----+
 	except: 
-		Error(data)
 		peakForce = data.max()
 		peakIndex = 0 
 
