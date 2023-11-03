@@ -9,14 +9,14 @@ import functions.singlefibreFunctions as singlefibre
 import functions.invivoFunctions as invivo
 from classes.classes import Colors, FileInfo
 from functions.optionsDictionary import options
-plt.style.use('custom_style.mplstyle')
+# plt.style.use('custom_style.mplstyle')
 
 
 class Analysis:
     def __init__(self) -> None:
         pass
 
-    def Run(Directory=None, AnalyzeTimepoint: str=None, model: str=None, test: str=None, Graph: bool=False) -> tuple[list[FileInfo], pd.DataFrame]:
+    def Run(Directory=None, AnalyzeTimepoint: str=None, model: str=None, test: str=None, graphBool: bool=False) -> tuple[list[FileInfo], pd.DataFrame]:
 
         def grab_filename_and_characteristic_info():
             if model == 'Single Fibre':
@@ -46,20 +46,20 @@ class Analysis:
                     Filename=os.path.basename(file),
                     Animal=meta_data['filename info']['animal'],
                     Fibre=meta_data['filename info']['fibre'],
-                    OrganizedData=OrganizedData)
+                    organizedData=OrganizedData)
             if model=='In Vivo':
                 EachFileInfo=FileInfo(
                     Filename=os.path.basename(file),
                     Animal=meta_data['filename info']['animal'],
                     Timepoint=meta_data['filename info']['timepoint'],
-                    OrganizedData=OrganizedData)
+                    organizedData=OrganizedData)
             AnalyzedFiles.append(EachFileInfo)
 
         def fill_results():
             results=pd.DataFrame(columns=OrganizedData.keys())
             for file in AnalyzedFiles:
-                for column in file.OrganizedData.keys():
-                    results.loc[file.Animal+file.Fibre, column]=file.OrganizedData[column]
+                for column in file.organizedData.keys():
+                    results.loc[file.Animal+file.Fibre, column]=file.organizedData[column]
             return results
 
         AllFiles=[]
@@ -73,27 +73,31 @@ class Analysis:
         if isinstance(Directory, list):
             AllFiles=Directory
         
+        
         if model=='Single Fibre': 
             if test=='pCa':
                 columns=[]
                 for file in AllFiles:
+                    print("file: ", file, "\n test: ", test)
                     OrganizedData={}
                     chosen_option=options[model][test]
-                    if test in os.path.basename(file).lower():
+                    # if test in os.path.basename(file).lower():
                         # Read text file, grab information from filename, and returns dataframe with necessary raw data for further analyses
-                        data, meta_data, characteristics, filename_info=singlefibre.ReadFile(file=file, model=model, test=test)
-                        
-                        grab_filename_and_characteristic_info()
+                    data, meta_data =singlefibre.readFile(file=file, model=model, test=test)
 
-                        results=singlefibre.pCaAnalysis(data=data, characteristics=characteristics, Graph=Graph)
-                        def fill_organized_data(substring: str = None):
-                            for idx, var in enumerate(chosen_option['col basenames']):
-                                col=chosen_option['col basenames'][idx].format(substring)
-                                OrganizedData[col]=results[idx]
-                        
-                        fill_organized_data(filename_info['pCa'])
+                    grab_filename_and_characteristic_info()
 
-                        generate_FileInfo_object()
+                    results=singlefibre.pCaAnalysis(data=data, metaData=meta_data)
+                    print("results: ", results)
+                    # def fill_organized_data(substring: str = None):
+                    #     for idx, var in enumerate(chosen_option['col basenames']):
+                    #         col=chosen_option['col basenames'][idx].format(substring)
+                    #         print("col: ", col)
+                    #         OrganizedData[col]=results[idx]
+                    
+                    # fill_organized_data(meta_data['filename info']['pCa'])
+
+                    generate_FileInfo_object()
 
             if test=='ktr':
                 columns=[]
@@ -108,7 +112,7 @@ class Analysis:
 
 
 
-                        results=singlefibre.ktrAnalysis(data=data, Filename=os.path.basename(file), characteristics=characteristics, meta_data=meta_data, Graph=Graph)
+                        results=singlefibre.ktrAnalysis(data=data, Filename=os.path.basename(file), characteristics=characteristics, meta_data=meta_data, graphBool=graphBool)
 
                         for idx, var in enumerate(chosen_option['col basenames']):
                             col=chosen_option['col basenames'][idx].format(filename_info['pCa'])
@@ -141,7 +145,7 @@ class Analysis:
 
                     grab_filename_and_characteristic_info()
 
-                    iso_results, rfe_results=map(lambda data: singlefibre.rFEAnalysis(data, meta_data=meta_data, CSA=characteristics['CSA'], Graph=Graph), [first_frame_data, second_frame_data])
+                    iso_results, rfe_results=map(lambda data: singlefibre.rFEAnalysis(data, meta_data=meta_data, CSA=characteristics['CSA'], graphBool=graphBool), [first_frame_data, second_frame_data])
                     iso_graph, rfe_graph=map(lambda result, color, label: plotting.show(result[0]['Time (ms)'], result[0]['Force in (mN)'], color, label), [iso_results, rfe_results], [Colors.Black, Colors.Firebrick], ['ISO', 'rFE'])
                     
                     for descriptor, results in zip(['ISO', 'rFE'], [iso_results, rfe_results]):
@@ -151,7 +155,7 @@ class Analysis:
                     
                     OrganizedData[f"{filename_info['rFE Method']} % rFE"]=((rfe_results[1] - iso_results[1]) / (iso_results[1]) * 100)
 
-                    if Graph==True: 
+                    if graphBool==True: 
                         plotting.show(ylabel='Force (mN)', xlabel='Time (ms)')
 
                     generate_FileInfo_object()
@@ -172,7 +176,7 @@ class Analysis:
                             grab_filename_and_characteristic_info()
 
                             if specific_test=='rFD':
-                                rfd_results, iso_results=map(lambda data: singlefibre.rFEAnalysis(data, Graph=Graph), [first_frame_data, second_frame_data])
+                                rfd_results, iso_results=map(lambda data: singlefibre.rFEAnalysis(data, graphBool=graphBool), [first_frame_data, second_frame_data])
                                 rfd_graph, iso_graph=map(lambda result, color, label: plotting.show(result[0]['Time (ms)'], result[0]['Force in (mN)'], color, label), [rfd_results, iso_results], [Colors.Black, Colors.Firebrick], ['rFD', 'ISO'])
 
                                 for idx, var in enumerate(chosen_option['col basenames']):
@@ -180,13 +184,13 @@ class Analysis:
                                     OrganizedData[col]=[results[idx+1] for results in [rfd_results, iso_results]]
 
                             if specific_test=='rFE':
-                                iso_results, rfe_results=map(lambda data: singlefibre.rFEAnalysis(data, Graph=Graph), [first_frame_data, second_frame_data])
+                                iso_results, rfe_results=map(lambda data: singlefibre.rFEAnalysis(data, graphBool=graphBool), [first_frame_data, second_frame_data])
                                 iso_graph, rfe_graph=map(lambda result, color, label: plotting.show(result[0]['Time (ms)'], result[0]['Force in (mN)'], color, label), [iso_results, rfe_results], [Colors.Black, Colors.Firebrick], ['ISO', 'rFE'])
                                 for idx, var in enumerate(chosen_option['col basenames']):
                                     col=chosen_option['col basenames'][idx].format(specific_test, f"{filename_info['starting SL']}-{filename_info['ending SL']}")
                                     OrganizedData[col]=[results[idx+1] for results in [rfe_results, iso_results]]
                             
-                            if Graph==True:
+                            if graphBool==True:
                                 plotting.show(ylabel='Force (mN)', xlabel='Time (ms)')
                                 
                             generate_FileInfo_object()
@@ -219,7 +223,7 @@ class Analysis:
                                 OrganizedData[col]=analysis_results[idx]
 
                             generate_FileInfo_object()
-                            if Graph==True:
+                            if graphBool==True:
                                 plotting.show(chosen_option['graphing']['x label'], chosen_option['graphing']['y label'])
                             plt.close()
 
@@ -237,7 +241,7 @@ class Analysis:
                             
                             grab_filename_and_characteristic_info()
                             
-                            results=invivo.Torque_Frequency(data=data, filename_info=filename_info, Graph=Graph)
+                            results=invivo.Torque_Frequency(data=data, filename_info=filename_info, graphBool=graphBool)
                             
                             for idx, var in enumerate(chosen_option['col basenames']):
                                 col=chosen_option['col basenames'][idx].format(filename_info['timepoint'], filename_info['frequency'])
@@ -256,7 +260,7 @@ class Analysis:
                             
                         grab_filename_and_characteristic_info()
                         
-                        results=invivo.Torque_Velocity(data=data, filename_info=filename_info, Graph=Graph)
+                        results=invivo.Torque_Velocity(data=data, filename_info=filename_info, graphBool=graphBool)
                         
                         for idx, var in enumerate(chosen_option['col basenames']):
                             col=chosen_option['col basenames'][idx].format(filename_info['timepoint'], filename_info['ISO Percent'])
@@ -272,7 +276,7 @@ class Analysis:
                             
                         grab_filename_and_characteristic_info()
                         
-                        results=invivo.Fatigue(data=data, filename_info=filename_info, Graph=Graph)
+                        results=invivo.Fatigue(data=data, filename_info=filename_info, graphBool=graphBool)
                         
                         for idx, var in enumerate(chosen_option['col basenames']):
                             col=chosen_option['col basenames'][idx].format(filename_info['timepoint'])
@@ -291,7 +295,7 @@ class Analysis:
                             
                         grab_filename_and_characteristic_info()
                         
-                        results=invivo.PLFFD(data=data, filename_info=filename_info, Graph=Graph)
+                        results=invivo.PLFFD(data=data, filename_info=filename_info, graphBool=graphBool)
                         
                         for idx, var in enumerate(chosen_option['col basenames']):
                             col=chosen_option['col basenames'][idx].format(filename_info['timepoint'])

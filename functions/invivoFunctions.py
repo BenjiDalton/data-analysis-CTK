@@ -18,7 +18,6 @@ class Error(Exception):
     pass
 
 def readFile(file: str=None, model: str=None, test: str=None, user: str=None) -> tuple[pd.DataFrame, dict]:
-    print(os.path.basename(file))
     metaData={'test': test, 'model': model}
 
     data=None
@@ -45,7 +44,7 @@ def readFile(file: str=None, model: str=None, test: str=None, user: str=None) ->
     if test == 'Torque-Velocity':
         filenameInfo['ISO percent']=filename[4]
 
-    if test == 'Recovery':
+    if test == 'Recovery ISOs':
         recoveryTimepoint=filename[4]
         filenameInfo['recovery timepoint']=f'{recoveryTimepoint} min' if recoveryTimepoint in {'1', '2', '5', '10'} else recoveryTimepoint
 
@@ -57,6 +56,7 @@ def readFile(file: str=None, model: str=None, test: str=None, user: str=None) ->
         'Sample': int}
 
     with open(file, encoding='latin1') as tempFile:
+        print(tempFile)
         textdata=[]
         lineNumbers=range(1, 50)
         for idx, line in enumerate(tempFile):
@@ -71,7 +71,7 @@ def readFile(file: str=None, model: str=None, test: str=None, user: str=None) ->
     columns ={
         0: 'Time',
         1: 'Length',
-        2: 'Torque',
+        2: 'Raw Torque',
         11: 'Stim'
     }
     
@@ -86,23 +86,16 @@ def readFile(file: str=None, model: str=None, test: str=None, user: str=None) ->
         skiprows=sectionHeaders['Sample']+1,
         usecols=columns.keys(),
         names=columns.values())
-        
     
-    lengthScale, torqueScale=map(lambda idx: float(textdata[sectionHeaders['Scale (units/V)']].split('\t')[idx]), [1, 2])
+    lengthScale, torqueScale = map(lambda idx: float(textdata[sectionHeaders['Scale (units/V)']].split('\t')[idx]), [1, 2])
 
-    data['Length']=data['Length']*lengthScale
-    data['Torque']=data['Torque']*torqueScale
-    # data=GetTextData(skiprows=8, columns={0: 'Time', 1: 'Length', 2: 'Raw Torque', 3: 'Other', 11: 'Stim'})
-    # Aurora Scientific includes length and torque scale factors in their data files
-    lengthScale: float=float(data['Raw Torque'][0])
-    torqueScale: float=float(data['Stim'][0])
+    data['Length'] = data['Length']*lengthScale
+    data['Raw Torque'] = data['Raw Torque']*torqueScale
 
-    # Find start of actual data in text file
-    dataStart=data.index[data['Time'] == '0'][0]
+    data['Time'] = data['Time'].div(10000)
 
-    data=pd.DataFrame(data[['Time', 'Length', 'Raw Torque', 'Stim']][dataStart:], dtype=float).reset_index(drop=True)
-
-    data['Time']=data['Time'].div(10000)
+    plt.plot(data['Time'], data['Length'])
+    # plt.show()
 
     # Baseline torque values 
     if file.__contains__('TF' or 'Isotonic'):
@@ -115,13 +108,16 @@ def readFile(file: str=None, model: str=None, test: str=None, user: str=None) ->
     data['Raw Torque'] -= baselineTorque
 
     # Scale length and torque channels based off Aurora Scientific values
-    data['Length']=data['Length'] * lengthScale
-    data['Raw Torque']=data['Raw Torque'] * torqueScale
+    data['Length'] = data['Length'] * lengthScale
+    data['Raw Torque'] = data['Raw Torque'] * torqueScale
 
     # Filter torque signal with highpass (> 100 Hz) filter to eliminate stim artifacts
-    data['Filtered Torque']=ButterworthFilter(data['Raw Torque'], 100, 2)
+    data['Filtered Torque'] = ButterworthFilter(data['Raw Torque'], 100, 2)
 
-    return data, filenameInfo
+    for key, dictionary in zip(['protocol info', 'filename info'], [protocolInfo, filenameInfo]):
+        metaData[key] = dictionary
+    print(filenameInfo)
+    return data, metaData
 
 def findPeakTorque(data: pd.DataFrame, windowLength: int) -> tuple[float, int]:
     temp=pd.DataFrame()
@@ -183,7 +179,9 @@ def isotonicContractions(data: pd.DataFrame=None, filenameInfo: dict=None, UserI
         
     except:
         print(Error(f"End ROM not found for {filenameInfo['animal']}, {filenameInfo['timepoint']}"))
-
+    plt.plot(data['Time'], data['Length'], color = 'black')
+    plt.plot(data['Time'][isoStart:isoEnd], data['Length'][isoStart:isoEnd], color = 'red')
+    plt.show()
     return data.iloc[:isoEnd]
 
 def torqueVelocity(data: pd.DataFrame=None, metaData: dict=None) -> tuple[float, float, float]:
@@ -249,31 +247,34 @@ def torqueVelocity(data: pd.DataFrame=None, metaData: dict=None) -> tuple[float,
         ]
     return analysisResults
 
-def Recovery_Isotonics(data: pd.DataFrame=None, metaData: dict=None) -> tuple[float, float, float]:
+def recoveryIsotonics(data: pd.DataFrame=None, metaData: dict=None, graphbool: bool=True) -> tuple[float, float, float]:
     def get_isotonic_results(data: pd.DataFrame, metaData: dict):
         try: 
-            data=isotonicContractions(data=data, filenameInfo=metaData['filename info'])
+            data = isotonicContractions(data=data, filenameInfo=metaData['filename info'])
         except:
-            iso_velocity=0
+            isoVelocity = 0
         else:
-            iso_velocity=((data['Length'].iloc[-1] - data['Length'].iloc[1]) / (data['Time'].iloc[-1] - data['Time'].iloc[1]) * -1)
+            isoVelocity = ((data['Length'].iloc[-1] - data['Length'].iloc[1]) / (data['Time'].iloc[-1] - data['Time'].iloc[1]) * -1)
         
-        iso_torque=data['Filtered Torque'].mean()
-        iso_power=iso_torque * iso_velocity
+        isoTorque = data['Filtered Torque'].mean()
+        isoPower = isoTorque * isoVelocity
 
-        return iso_velocity, iso_torque, iso_power
+        print(f'velocity = {isoVelocity}, torque = {isoTorque}, power = {isoPower}')
+
+        return isoVelocity, isoTorque, isoPower
     
     # Grab subset of data where isotonic contractions were performed 
     # Make sure to include at least 1000 samples (i.e., 100 ms) prior to contraction starting so baseline signals can be obtained
     Rec1_Data, Rec2_Data=[data[dataStart:dataStart + 6000] for dataStart in [20000, 55000]]
-
     rec1, rec2=map(lambda data: get_isotonic_results(data, metaData), [Rec1_Data, Rec2_Data])
 
-    fig, Recovery_ISOs=plt.subplots(nrows=1, ncols=2, figsize=(width:= 6, height:= 4), layout='constrained')
-    Recovery_ISOs[0].plot(Rec1_Data['Time'], Rec1_Data['Length'])
-    Recovery_ISOs[1].plot(Rec2_Data['Time'], Rec2_Data['Length'])
-
- 
+    if graphbool == True:
+        
+        fig, Recovery_ISOs=plt.subplots(nrows=1, ncols=2, figsize=(width:= 10, height:= 7), layout='constrained')
+        Recovery_ISOs[0].plot(Rec1_Data['Time'], Rec1_Data['Length'])
+        Recovery_ISOs[1].plot(Rec2_Data['Time'], Rec2_Data['Length'])
+        plt.title(os.path.basename(metaData['filename info']['full filename']))
+        plt.show()
     return rec1 if rec1[2] > rec2[2] else rec2
 
 def Fatigue(data: pd.DataFrame=None, metaData: dict=None) -> int:

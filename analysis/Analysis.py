@@ -32,32 +32,28 @@ def Run(fileDirectory = None, model: str = None, test: str = None, graphBool: bo
 		for protocol in options[model].keys():
 			if protocol.upper() in os.path.basename(file).upper():
 				
-				chosenOption = options[model][test]
+				#----- User inputs ------+
+				chosenOption = options[model][test] 
+				#----- Read text file and grab info based on protocol selected by user ------+
 				data, metaData = options[model]['read file'](file, model, protocol)
+				#----- Analyze data based on protocol selected by user ------+
 				results = chosenOption['analyze'](data, metaData, graph)
 
 				chosenOption = options[model][protocol]
-				if test == "Binta" or test == "Makenna":
-					try:
-						rowIndex = metaData['filename info']['animal'] + '_' + metaData['filename info']['fibre']
-						for subkey in ['filename info', 'characteristics']:
-							for column, value in metaData[subkey].items():
-								excelResults.loc[rowIndex, column] = value
-						for column, value in results.items():
-							excelResults.loc[rowIndex, column] = value
-					except Exception as e:
-						print(f"An error occurred: {str(e)} in {file}")
-						excelFilename = filedialog.asksaveasfilename(defaultextension='xlsx')
-						excelResults.to_excel(excelFilename, index = True)
-					continue
 
-				# data = options[model]['fill results'](
-				# 	model, 
-				# 	results,
-				# 	metaData, 
-				# 	chosenOption['col basenames'], 
-				# 	chosenOption['substring']
-				# )
+				#----- Fill dataframe with results ------+
+				#----- Sent to front end to fill table with data and let user save results to excel file ------+
+				try:
+					rowIndex = metaData['filename info']['full filename']
+					for subkey in ['filename info', 'characteristics']:
+						for column, value in metaData[subkey].items():
+							excelResults.loc[rowIndex, column] = value
+					for column, value in results.items():
+						excelResults.loc[rowIndex, column] = value
+				except Exception as e:
+					print(f"An error occurred: {str(e)} in {file}")
+					excelFilename = filedialog.asksaveasfilename(defaultextension='xlsx')
+					excelResults.to_excel(excelFilename, index = True)
 
 				if graphBool == True:
 					# plotting.show(
@@ -67,20 +63,6 @@ def Run(fileDirectory = None, model: str = None, test: str = None, graphBool: bo
 					plt.show()
 				plt.close()
 
-	# try:
-	# 	excelFilename = filedialog.asksaveasfilename(defaultextension='xlsx')
-	# 	excelResults.to_excel(excelFilename, index = True)
-	# except:
-	# 	excelResults.to_excel(os.path.dirname(file) + f'/results{date.today()}.xlsx', index = True)
-	excelResults.to_excel(os.path.dirname(file) + f'/Binta_results{date.today()}.xlsx', index = True)
 	print("completed successfully")
-	exit()
-	sorted_columns = sorted(data.columns, key = lambda column: float(re.search(r'pCa (\d+\.\d+)', column).group(1) if 'pCa' in column else np.nan))
-	
-	data = data.reindex(columns = sorted_columns)
-	
-	results = pd.DataFrame(data = data, columns = sorted_columns)
 
-	return results
-
-	# results.to_excel('', index = False)
+	return excelResults

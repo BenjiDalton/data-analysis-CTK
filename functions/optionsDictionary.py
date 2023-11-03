@@ -202,8 +202,11 @@ options = {
         'Fatigue': {
             'analyze': invivo.Fatigue
         },
-        'Recovery': {
+        'PLFFD': {
             'analyze': invivo.PLFFD
+        },
+        'Recovery ISOs': {
+            'analyze': invivo.recoveryIsotonics
         }
     }
 }
