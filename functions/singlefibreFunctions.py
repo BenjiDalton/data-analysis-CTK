@@ -38,7 +38,8 @@ def readFile(file: str = None, model: str = None, test: str = None, user: str = 
 	characteristics = {
 		'Fiber Length': float,
 		'Initial Sarcomere Length': float,
-		'Diameter': float
+		'Diameter': float,
+		'Fiber Stiffness (mN/mm)': float
 		}
 	testParams = [
 		'Force-Step', 
@@ -68,7 +69,7 @@ def readFile(file: str = None, model: str = None, test: str = None, user: str = 
 
 	characteristics['CSA'] = np.pi*(float(characteristics['Diameter'])/2)**2
 	protocolInfo['sample rate'] = float(re.findall(r"[-+]?\d*\.\d+|\d+", textData[sectionHeaders['A/D Sampling Rate']-1])[0])
-
+	
 	for param in testParams:
 		paramTime = [float(i.split('\t')[0]) for i in textData[sectionHeaders['Time (ms)\tControl Function\tOptions']:sectionHeaders['*** Force and Length Signals vs Time ***']] if param in i]
 		paramInfo = [i.split('\t')[3].strip() for i in textData[sectionHeaders['Time (ms)\tControl Function\tOptions']:sectionHeaders['*** Force and Length Signals vs Time ***']] if param in i and len(i.split('\t'))>2]
@@ -153,8 +154,8 @@ def readFile(file: str = None, model: str = None, test: str = None, user: str = 
 
 	if test == 'ISO':
 		filenameInfo['starting SL'] = filename[3].capitalize()
-
-	if test in ['pCa', 'ktr', 'SSC', 'CONCENTRIC', 'ISO', 'Power', 'rFE', 'rFD']:
+	
+	if test in ['pCa', 'ktr', 'SSC', 'CONCENTRIC', 'ISO', 'Power', 'rFE', 'rFD', 'Makenna']:
 		for key, dictionary in zip(['protocol info', 'characteristics','filename info'], [protocolInfo, characteristics, filenameInfo]):
 			metaData[key] = dictionary
 
@@ -177,14 +178,15 @@ def pCaAnalysis(data: pd.DataFrame = None, metaData: dict = None, graph: plt.Axe
 	graphWindow = int(windowLength / 2)
 	peakForce, peakIndex = findPeakForce(data['Force in (mN)'], windowLength)
 
-	graph.plot(data['Time (ms)'].div(msToSeconds), data['Force in (mN)'], color = Colors.Black)
-	graph.plot(data['Time (ms)'].div(msToSeconds)[peakIndex - graphWindow: peakIndex + graphWindow], data['Force in (mN)'][peakIndex - graphWindow: peakIndex + graphWindow], color = Colors.Firebrick, label = 'Peak Force')
-	graph.text(
-		x = 0.5, y = 0.1,
-		s = f'Peak force = {peakForce:.2f}uN', 
-			transform = plt.gca().transAxes,
-			horizontalalignment = 'center',
-			verticalalignment = 'center')
+	if graph:
+		graph.plot(data['Time (ms)'].div(msToSeconds), data['Force in (mN)'], color = Colors.Black)
+		graph.plot(data['Time (ms)'].div(msToSeconds)[peakIndex - graphWindow: peakIndex + graphWindow], data['Force in (mN)'][peakIndex - graphWindow: peakIndex + graphWindow], color = Colors.Firebrick, label = 'Peak Force')
+		graph.text(
+			x = 0.5, y = 0.1,
+			s = f'Peak force = {peakForce:.2f}uN', 
+				transform = plt.gca().transAxes,
+				horizontalalignment = 'center',
+				verticalalignment = 'center')
 
 	return {
 			'Absolute Force': peakForce, 
@@ -244,7 +246,6 @@ def ktrAnalysis(data: pd.DataFrame = None, metaData: dict = None, graph: plt.Axe
 	ktrStart = data.index[data['Time (ms)'] == ktrRestretch][0]
 	ktrEnd = data.index[data['Time (ms)'] == stiffnessPostKtr-500][0]
 
-
 	stiffnessResults = stiffnessAnalysis(data, 0.9, metaData['protocol info']['sample rate'], graph)
 
 	modelData = pd.DataFrame(data[['Time (ms)', 'Force in (mN)']][ktrStart:ktrEnd])
@@ -292,15 +293,16 @@ def ktrAnalysis(data: pd.DataFrame = None, metaData: dict = None, graph: plt.Axe
 	
 	ktrForce = data['Force in (mN)'][-5000:].mean()
 	
-	graph.plot(modelData['Time (ms)'], modelData['Force in (mN)'], color = Colors.Black, label = 'Raw')
-	graph.plot(xModel, yModel, color = Colors.Firebrick, label = 'Fit')
-	graph.text(
-		x = 0.5, y = 0.1,
-		s = f'ktr = {ktr:.3f}\n'
-			f'Goodness of fit = {goodnessFit * 100:.2f}%', 
-		transform = plt.gca().transAxes,
-		horizontalalignment = 'center',
-		verticalalignment = 'center')
+	if graph:
+		graph.plot(modelData['Time (ms)'], modelData['Force in (mN)'], color = Colors.Black, label = 'Raw')
+		graph.plot(xModel, yModel, color = Colors.Firebrick, label = 'Fit')
+		graph.text(
+			x = 0.5, y = 0.1,
+			s = f'ktr = {ktr:.3f}\n'
+				f'Goodness of fit = {goodnessFit * 100:.2f}%', 
+			transform = plt.gca().transAxes,
+			horizontalalignment = 'center',
+			verticalalignment = 'center')
 
 	return {
 			"ktr": ktr,
@@ -595,7 +597,7 @@ def Makenna_Analysis(data: pd.DataFrame = None, metaData: dict = None, graph: pl
 			f"Stiffness following {columnHeader}": stiffnessResults['Stiffness']
 		}
 	
-	plt.savefig(f"/Volumes/Lexar/Makenna/{metaData['filename info']['full filename']}-fig", dpi = 500)
+	# plt.savefig(f"/Volumes/Lexar/Makenna/{metaData['filename info']['full filename']}-fig", dpi = 500)
 	# plt.show()
 	plt.close()
 	return analysisResults
