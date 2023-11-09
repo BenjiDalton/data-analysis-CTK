@@ -108,7 +108,8 @@ def Run(fileDirectory = None, model: str = None, test: str = None, graphBool: bo
 						destinationPath = os.path.join(destinationFolder, os.path.basename(file))
 						try: 
 							shutil.move(file, destinationPath)
-						except OSError:
+						except OSError as error:
+							print(error)
 							continue
 					except Exception as error:
 						customError(f"Error occurred while moving the file {file} to the completed folder: {error}")
