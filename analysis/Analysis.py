@@ -109,6 +109,7 @@ def Run(fileDirectory = None, model: str = None, test: str = None, graphBool: bo
 						try: 
 							shutil.move(file, destinationPath)
 						except OSError as error:
+							print(f"file: {file} not moved to 'completed' folder.")
 							print(error)
 							continue
 					except Exception as error:
