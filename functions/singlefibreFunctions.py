@@ -203,6 +203,8 @@ def ktrAnalysis(data: pd.DataFrame = None, metaData: dict = None, graph: plt.Axe
 	 - Estimated x and y data from modeling (can be graphed with real data to visually inspect fit)
 	 - Average force over the final 500 ms of test
 	"""
+	def findClosestIndex(target, numbers):
+		return numbers.index(min(numbers, key = lambda x: abs(x - target)))
 
 	def ktrModel(x, a, kt, c):
 		return a * (1-np.exp(-kt*x)) + c
@@ -231,9 +233,61 @@ def ktrAnalysis(data: pd.DataFrame = None, metaData: dict = None, graph: plt.Axe
 		result = differential_evolution(sumOfSquaredError, parameterBounds, seed = 3)
 		return result.x
 
-	def findClosestIndex(target, numbers):
-		return numbers.index(min(numbers, key = lambda x: abs(x - target)))
+	def modelktr(ktrStart: int, ktrEnd: int):
+		print("model ktr entered")
+		print("ktr start: ", ktrStart)
+		print("ktr end: ", ktrEnd)
+		xData = np.array(modelData['Time (ms)'][ktrStart:ktrEnd])
+		yData = np.array(modelData['Force in (mN)'][ktrStart:ktrEnd])
 
+		#----- Find initial parameters for curve fitting -----+
+		ktrParameters = generateInitialParameters(xData, yData)
+
+		maxfev:int = 1000 #----- number of iterations code will attempt to find optimal curve fit -----+
+		try:
+			fittedParameters, pcov = curve_fit(ktrModel, xData, yData, ktrParameters, maxfev = maxfev)
+		except:
+			try:
+				maxfev = 5000
+				fittedParameters, pcov = curve_fit(ktrModel, xData, yData, ktrParameters, maxfev = maxfev)
+			except:
+				print(Error(f"ktr parameters were not fit after {maxfev} iterations for file: {metaData['full filename']}. Added to 'Files to Check'"))
+				return np.nan, np.nan, np.nan, np.nan, np.nan, np.nan
+				
+		#----- Generate model predictions -----+
+		modelPredictions = ktrModel(xData, *fittedParameters)
+
+		#----- Calculate error -----+
+		maxForceError: float = np.sqrt(pcov[0, 0])
+		ktrError: float = np.sqrt(pcov[1, 1])
+		forceT0Error: float = np.sqrt(pcov[2, 2])
+		ktr: float = fittedParameters[1]
+		absError = modelPredictions - yData
+
+		SE: float = np.square(absError)  #---- squared errors -----+
+		MSE: float = np.mean(SE)  #----- mean squared errors -----+
+		RMSE: float = np.sqrt(MSE)  #----- Root Mean Squared Error, RMSE -----+
+		goodnessFit: float = 1.0 - (np.var(absError) / np.var(yData))
+
+		xModel: np.array = np.linspace(min(xData), max(xData), 100)
+		yModel: np.array = ktrModel(xModel, *fittedParameters)
+		
+		ktrForce = data['Force in (mN)'][-5000:].mean()
+		
+		if graph:
+			subset: int = 4000
+			graph.plot(modelData['Time (ms)'][:subset], modelData['Force in (mN)'][:subset], color = Colors.Black, label = 'Raw')
+			graph.plot(xModel[:subset], yModel[:subset], color = Colors.Firebrick, label = 'Fit')
+			graph.text(
+				x = 0.5, y = 0.1,
+				s = f'ktr = {ktr:.3f}\n'
+					f'Goodness of fit = {goodnessFit * 100:.2f}%', 
+				transform = plt.gca().transAxes,
+				horizontalalignment = 'center',
+				verticalalignment = 'center')
+		return ktr, goodnessFit, ktrForce
+	
+	
 	protocolInfo = metaData['protocol info']
 	#----- find index of length restretch from the protocol defined in text file -----+
 	restretchIndex = findClosestIndex(protocolInfo['Length-Ramp']['time'][0], protocolInfo['Length-Step']['time'])
@@ -243,12 +297,12 @@ def ktrAnalysis(data: pd.DataFrame = None, metaData: dict = None, graph: plt.Axe
 	stiffnessPostKtr = protocolInfo['Length-Step']['time'][restretchIndex+1] 
 
 	#----- find where restretch and stiffness occur in actual data -----+
-	ktrStart = data.index[data['Time (ms)'] == ktrRestretch][0]
-	ktrEnd = data.index[data['Time (ms)'] == stiffnessPostKtr-500][0]
-
+	initialktrStart = data.index[data['Time (ms)'] == ktrRestretch][0]
+	initialktrEnd = data.index[data['Time (ms)'] == stiffnessPostKtr-500][0]
+	
 	stiffnessResults = stiffnessAnalysis(data, 0.9, metaData['protocol info']['sample rate'], graph)
 
-	modelData = pd.DataFrame(data[['Time (ms)', 'Force in (mN)']][ktrStart:ktrEnd])
+	modelData = pd.DataFrame(data[['Time (ms)', 'Force in (mN)']][initialktrStart:initialktrEnd])
 	#----- time must be in seconds for curve fitting to work properly -----+
 	modelData['Time (ms)'] = modelData['Time (ms)'].div(msToSeconds) 
 	
@@ -256,58 +310,21 @@ def ktrAnalysis(data: pd.DataFrame = None, metaData: dict = None, graph: plt.Axe
 	ktrStartOffset = 100
 	minForceIndex = modelData[['Force in (mN)']].idxmin()
 	ktrStart: int = (minForceIndex[0] + ktrStartOffset) - modelData.index[0]
-	xData = np.array(modelData['Time (ms)'][ktrStart:])
-	yData = np.array(modelData['Force in (mN)'][ktrStart:])
+	ktrEnd = ktrStart + 4000
+	ktr, goodnessFit, ktrForce = modelktr(ktrStart, ktrEnd)
 
-	#----- Find initial parameters for curve fitting -----+
-	ktrParameters = generateInitialParameters(xData, yData)
+	coords=plt.ginput(n=2, show_clicks= True, timeout=9999)
+	if coords:	
+		ktrStartClick=round(coords[0][0] * 10000)
+		ktrEndClick=round(coords[1][0] * 10000)
+		graph.clear()
+		ktr, goodnessFit, ktrForce = modelktr(ktrStartClick - 10000, ktrEndClick - 10000)
 
-	maxfev:int = 1000 #----- number of iterations code will attempt to find optimal curve fit -----+
-	try:
-		fittedParameters, pcov = curve_fit(ktrModel, xData, yData, ktrParameters, maxfev = maxfev)
-	except:
-		try:
-			maxfev = 5000
-			fittedParameters, pcov = curve_fit(ktrModel, xData, yData, ktrParameters, maxfev = maxfev)
-		except:
-			print(Error(f"ktr parameters were not fit after {maxfev} iterations for file: {metaData['full filename']}. Added to 'Files to Check'"))
-			return np.nan, np.nan, np.nan, np.nan, np.nan, np.nan
-			
-	#----- Generate model predictions -----+
-	modelPredictions = ktrModel(xData, *fittedParameters)
-
-	#----- Calculate error -----+
-	maxForceError: float = np.sqrt(pcov[0, 0])
-	ktrError: float = np.sqrt(pcov[1, 1])
-	forceT0Error: float = np.sqrt(pcov[2, 2])
-	ktr: float = fittedParameters[1]
-	absError = modelPredictions - yData
-
-	SE: float = np.square(absError)  #---- squared errors -----+
-	MSE: float = np.mean(SE)  #----- mean squared errors -----+
-	RMSE: float = np.sqrt(MSE)  #----- Root Mean Squared Error, RMSE -----+
-	goodnessFit: float = 1.0 - (np.var(absError) / np.var(yData))
-
-	xModel: np.array = np.linspace(min(xData), max(xData), 100)
-	yModel: np.array = ktrModel(xModel, *fittedParameters)
-	
-	ktrForce = data['Force in (mN)'][-5000:].mean()
-	
-	if graph:
-		graph.plot(modelData['Time (ms)'], modelData['Force in (mN)'], color = Colors.Black, label = 'Raw')
-		graph.plot(xModel, yModel, color = Colors.Firebrick, label = 'Fit')
-		graph.text(
-			x = 0.5, y = 0.1,
-			s = f'ktr = {ktr:.3f}\n'
-				f'Goodness of fit = {goodnessFit * 100:.2f}%', 
-			transform = plt.gca().transAxes,
-			horizontalalignment = 'center',
-			verticalalignment = 'center')
 
 	return {
 			"ktr": ktr,
 			"Goodness of Fit": goodnessFit,
-			"Absolute Force after ktr": ktr,
+			"Absolute Force after ktr": ktrForce,
 			"Specific Force after ktr": ktrForce/metaData['characteristics']['CSA'],
 			"Stiffness after ktr": stiffnessResults['Stiffness']
 			}
@@ -618,8 +635,8 @@ def stiffnessAnalysis(data: pd.DataFrame, stiffnessTimeSecs: float|int, sampleRa
 	dLo = (data['Normalized Length'][stiffnessWindow]).max() - (data['Normalized Length'][forceWindow]).mean()
 	stiffness = dF/dLo
 	forceBeforeStiffness = np.mean(data['Force in (mN)'][forceWindow])
-	if graph != None:
-		graph.plot(data['Time (ms)'].div(msToSeconds)[forceWindow], data['Force in (mN)'][forceWindow], color = Colors.SkyBlue, label = 'Peak force')
+	# if graph != None:
+	# 	graph.plot(data['Time (ms)'].div(msToSeconds)[forceWindow], data['Force in (mN)'][forceWindow], color = Colors.SkyBlue, label = 'Peak force')
 	return {
 			'Stiffness': stiffness, 
 			'Force before Stiffness': forceBeforeStiffness

@@ -56,7 +56,7 @@ def Run(fileDirectory = None, model: str = None, test: str = None, graphBool: bo
 	
 	for idx, file in enumerate(allFiles):
 		graph = None
-		if graphBool == True and test != 'Binta' | 'Makenna':
+		if graphBool == True and test != 'Binta' and test != 'Makenna':
 			fig, graph = plotting.initializeFig()
 		for protocol in options[model].keys():
 			if protocol.upper() in os.path.basename(file).upper():
@@ -115,8 +115,11 @@ def Run(fileDirectory = None, model: str = None, test: str = None, graphBool: bo
 					saveData()
 					break
 				
-		
-	saveData()
+	try:
+		saveData()
+	except OSError:
+		excelFilePath = filedialog.asksaveasfilename(defaultextension="xlsx")
+		excelResults.to_excel(excelFilePath, index = True)
 	print("completed successfully")
 
 	return excelResults
